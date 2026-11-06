@@ -1,12 +1,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
-//  Generira dist/tree.svg (+ light/dark varijante) iz stvarnih GitHub podataka.
+//  Generates dist/tree.svg (+ light/dark variants) from real GitHub data.
 //
-//  Primjeri:
-//    node scripts/generate.mjs --demo                    (izmišljeni podaci, bez interneta)
-//    node scripts/generate.mjs --user TVOJ_USERNAME      (treba GITHUB_TOKEN ili `gh` CLI)
-//    node scripts/generate.mjs --user x --lang en --season auto
+//  Examples:
+//    node scripts/generate.mjs --demo                    (made-up data, no internet needed)
+//    node scripts/generate.mjs --user YOUR_USERNAME     (needs GITHUB_TOKEN or the `gh` CLI)
+//    node scripts/generate.mjs --user x --lang hr --season winter
 //
-//  U GitHub Actionu se username i token uzimaju automatski iz okoline.
+//  In a GitHub Action the username and token are taken from the environment.
 // ─────────────────────────────────────────────────────────────────────────────
 import { mkdir, writeFile } from 'node:fs/promises';
 import { execSync } from 'node:child_process';
@@ -33,10 +33,10 @@ function parseArgs(argv) {
 
 const args = parseArgs(process.argv.slice(2));
 const outDir = join(ROOT, args.out || 'dist');
-const lang = args.lang || process.env.TREE_LANG || 'hr';
+const lang = args.lang || process.env.TREE_LANG || 'en';
 const season = args.season || process.env.TREE_SEASON || 'auto';
 const hemisphere = args.hemisphere || process.env.TREE_HEMISPHERE || 'north';
-// dan/noć: 'time' = po stvarnom izlasku/zalasku sunca na lokaciji, 'theme' = po temi posjetitelja
+// day/night: 'time' = by actual sunrise/sunset at the location, 'theme' = by the visitor's theme
 const daynight = args.daynight || process.env.TREE_DAYNIGHT || 'time';
 const lat = Number(args.lat || process.env.TREE_LAT || DEFAULT_LAT);
 const lon = Number(args.lon || process.env.TREE_LON || DEFAULT_LON);
@@ -60,14 +60,14 @@ async function gql(token, query, variables) {
 }
 
 async function fetchGithub(login, token) {
-  // 1) kalendar zadnjih godinu dana + popis godina u kojima je bilo doprinosa
+  // 1) calendar for the last year + list of years with contributions
   const q1 = `query($login:String!){user(login:$login){contributionsCollection{contributionYears contributionCalendar{totalContributions weeks{contributionDays{date contributionCount}}}}}}`;
   const d1 = await gql(token, q1, { login });
-  if (!d1.user) throw new Error(`Korisnik "${login}" ne postoji.`);
+  if (!d1.user) throw new Error(`User "${login}" does not exist.`);
   const cc = d1.user.contributionsCollection;
   const days = cc.contributionCalendar.weeks.flatMap((w) => w.contributionDays).map((d) => ({ date: d.date, count: d.contributionCount }));
 
-  // 2) ukupno po godinama (API daje najviše godinu dana po upitu, pa koristimo aliase)
+  // 2) totals per year (the API returns at most one year per query, so we use aliases)
   const now = new Date();
   const years = cc.contributionYears;
   const parts = years.map((y) => {
@@ -83,7 +83,7 @@ async function fetchGithub(login, token) {
 }
 
 function demoData() {
-  // izmišljen, ali uvjerljiv kalendar: ~4 commita tjedno, s pauzama
+  // made-up but believable calendar: ~4 commits a week, with breaks
   const days = [];
   const now = new Date();
   let seed = 7;
@@ -99,27 +99,27 @@ function demoData() {
   return { total: Number(args.total) || lastYear + 640, days };
 }
 
-const hm = (d) => d ? d.toLocaleTimeString('hr-HR', { timeZone: process.env.TREE_TZ || 'Europe/Zagreb', hour: '2-digit', minute: '2-digit' }) : '-';
+const hm = (d) => d ? d.toLocaleTimeString('en-GB', { timeZone: process.env.TREE_TZ || 'Europe/Zagreb', hour: '2-digit', minute: '2-digit' }) : '-';
 
 async function main() {
   const login = args.user || process.env.GH_USER || process.env.GITHUB_REPOSITORY_OWNER || 'demo';
   let data;
   if (args.demo) {
     data = demoData();
-    console.log('ℹ️  Demo način – izmišljeni podaci.');
+    console.log('ℹ️  Demo mode – made-up data.');
   } else {
     const token = getToken();
     if (!token) {
-      console.error('✖ Nema GitHub tokena. Postavi GITHUB_TOKEN, prijavi se s `gh auth login`, ili pokreni s --demo.');
+      console.error('✖ No GitHub token. Set GITHUB_TOKEN, log in with `gh auth login`, or run with --demo.');
       process.exit(1);
     }
-    console.log(`⏳ Dohvaćam doprinose za @${login}…`);
+    console.log(`⏳ Fetching contributions for @${login}…`);
     data = await fetchGithub(login, token);
   }
 
   const now = args.at ? new Date(args.at) : new Date();
   const stats = computeStats(data.days, now);
-  // glavne datoteke (tree.svg, tree-ascii.svg): po satu ili po temi posjetitelja
+  // main files (tree.svg, tree-ascii.svg): by the clock or by the visitor's theme
   const mainTheme = daynight === 'time' ? themeByTime(now, lat, lon) : 'auto';
   const base = { login, total: data.total, ...stats, lang, season, hemisphere };
 
@@ -144,9 +144,9 @@ async function main() {
     sunset: sun.sunset?.toISOString() ?? null,
   };
   await writeFile(join(outDir, 'stats.json'), JSON.stringify(info, null, 2));
-  console.log(`🌳 @${login}: ${info.total} doprinosa · ${info.stage} · ${stats.active30} aktivnih dana / 30 · zdravlje ${Math.round(info.health * 100)}%`);
-  if (daynight === 'time') console.log(`${mainTheme === 'light' ? '☀️  dan' : '🌙 noć'} (izlazak ${hm(sun.sunrise)}, zalazak ${hm(sun.sunset)} po lokalnom vremenu)`);
-  console.log(`✔ Spremljeno u ${outDir}`);
+  console.log(`🌳 @${login}: ${info.total} contributions · ${info.stage} · ${stats.active30} active days / 30 · health ${Math.round(info.health * 100)}%`);
+  if (daynight === 'time') console.log(`${mainTheme === 'light' ? '☀️  day' : '🌙 night'} (sunrise ${hm(sun.sunrise)}, sunset ${hm(sun.sunset)} local time)`);
+  console.log(`✔ Saved to ${outDir}`);
 }
 
 main().catch((e) => { console.error('✖', e.message); process.exit(1); });

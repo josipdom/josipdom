@@ -1,4 +1,4 @@
-// Mini statički server za lokalni preview (bez ovisnosti).
+// Tiny static server for the local preview (no dependencies).
 //   node scripts/serve.mjs   →   http://localhost:4173
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';

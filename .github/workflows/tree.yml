@@ -1,14 +1,15 @@
-name: 🌳 Zalij stablo
+name: 🌳 Water the tree
 
 on:
   schedule:
-    - cron: "7,37 * * * *"   # svakih 30 min (dan/noć prati izlazak i zalazak sunca)
-  workflow_dispatch:         # ručno pokretanje iz kartice "Actions"
+    - cron: "7,37 * * * *"   # every 30 min (day/night follows sunrise and sunset)
+  workflow_dispatch:         # manual run from the "Actions" tab
   push:
     branches: [main]
 
 permissions:
-  contents: write
+  contents: write   # push the generated SVGs to the "output" branch
+  actions: write    # keepalive: re-enable this workflow so GitHub never disables it
 
 concurrency:
   group: tree
@@ -24,26 +25,39 @@ jobs:
         with:
           node-version: 20
 
-      - name: Generiraj stablo
+      - name: Generate the tree
         run: node scripts/generate.mjs --out dist
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_USER: ${{ github.repository_owner }}
-          TREE_LANG: hr        # ili: en
-          TREE_SEASON: auto    # ili: spring / summer / autumn / winter
-          TREE_DAYNIGHT: time  # time = dan/noć po satu, theme = po temi posjetitelja
-          TREE_LAT: "45.815"   # lokacija za izlazak/zalazak sunca (Zagreb)
+          TREE_LANG: en        # or: hr
+          TREE_SEASON: auto    # or: spring / summer / autumn / winter
+          TREE_DAYNIGHT: time  # time = day/night by the clock, theme = by the visitor's theme
+          TREE_LAT: "45.815"   # location for sunrise/sunset (Zagreb)
           TREE_LON: "15.982"
+          TREE_TZ: Europe/Zagreb
 
-      # SVG ide na zasebnu granu "output" da ne zagađuje povijest glavne grane
-      - name: Objavi na granu output
+      # The SVGs go to a separate "output" branch so they don't clutter the main history
+      - name: Publish to the output branch
         run: |
           cd dist
           git init -q -b output
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add .
-          git commit -q -m "🌳 stablo $(date -u '+%F %H:%M')"
+          git commit -q -m "🌳 tree $(date -u '+%F %H:%M')"
           git push -q --force "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" output
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # GitHub disables scheduled workflows after 60 days without repository activity.
+      # Re-enabling the workflow through the API once a day resets that timer, no dummy commits needed.
+      - name: Keepalive
+        run: |
+          if [ "$(date -u +%H)" = "03" ] || [ "${{ github.event_name }}" != "schedule" ]; then
+            gh api -X PUT "repos/${GITHUB_REPOSITORY}/actions/workflows/tree.yml/enable" && echo "✔ keepalive"
+          else
+            echo "skipped (runs once a day, at 03:xx UTC)"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

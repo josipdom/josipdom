@@ -1,13 +1,13 @@
 // ─────────────────────────────────────────────────────────────────────────────
-//  Živo stablo – ASCII / "Matrix" stil.
-//  Koristi istu geometriju kao klasično stablo (treeGeometry), ali je
-//  rasterizira u mrežu znakova: grane postaju | / \ _, lišće postaju
-//  katakana i simboli, a u pozadini pada zelena "kiša" znakova.
+//  Living tree – ASCII / "Matrix" style.
+//  Uses the same geometry as the classic tree (treeGeometry), but rasterises
+//  it into a character grid: branches become | / \ _, leaves become keyboard
+//  symbols, and a green "rain" of characters falls in the background.
 // ─────────────────────────────────────────────────────────────────────────────
 import { W, H, STR, stageIndex, groundY, treeGeometry } from './tree.js';
 
-const CW = 8;   // širina ćelije (px)
-const CH = 13;  // visina ćelije (px)
+const CW = 8;   // cell width (px)
+const CH = 13;  // cell height (px)
 const COLS = Math.floor(W / CW);
 const ROWS = Math.ceil(H / CH);
 
@@ -23,7 +23,7 @@ const SEASON_LEAVES = {
   winter: ['#a8f4ff', '#5fd8c0', '#e8ffff', '#3fb98a'],
 };
 const WITHERED = ['#a89a3a', '#8a7a2a', '#c2b04a', '#7a6a2a'];
-// dnevne (svijetle) varijante – tamniji tonovi na svijetloj pozadini
+// day (light) variants – darker tones on a light background
 const DAY_LEAVES = {
   spring: ['#2e9e55', '#1f8a45', '#3fae62', '#c2477e'],
   summer: ['#1f8f3a', '#167a2e', '#2ea84a', '#0f6b26'],
@@ -32,7 +32,7 @@ const DAY_LEAVES = {
 };
 const DAY_WITHERED = ['#9a8420', '#7a6a1a', '#ad9530', '#6a5a1a'];
 
-// ── ASCII "nebo" ──
+// ── ASCII "sky" ──
 const SUN = [
   '      .---.      ',
   '  -- (     ) --  ',
@@ -81,7 +81,7 @@ function rng(seed) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-// stabilni "random" po ćeliji (da se znakovi ne mijenjaju svaki dan bez razloga)
+// stable per-cell "random" (so characters don't change every day for no reason)
 const cellHash = (c, r, salt = 0) => {
   let h = Math.imul(c * 374761393 + r * 668265263 + salt * 2246822519, 3266489917);
   h ^= h >>> 15;
@@ -107,7 +107,7 @@ const angleChar = (a) => {
 
 export function renderAscii(o) {
   const geo = treeGeometry(o);
-  const lang = STR[o.lang] ? o.lang : 'hr';
+  const lang = STR[o.lang] ? o.lang : 'en';
   const T = STR[lang];
   const rnd = rng(geo.login + ':ascii');
   const R = (a, b) => a + (b - a) * rnd();
@@ -121,7 +121,7 @@ export function renderAscii(o) {
     grid.set(k, { ch, cls, pri, kind, a: 0 });
   };
 
-  // ── tlo ──
+  // ── ground ──
   const groundRow = [];
   for (let c = 0; c < COLS; c++) {
     const gr = Math.floor(groundY(c * CW + CW / 2) / CH);
@@ -132,7 +132,7 @@ export function renderAscii(o) {
     }
   }
 
-  // ── grane ──
+  // ── branches ──
   for (const b of geo.branches) {
     const len = Math.hypot(b.P1[0] - b.P0[0], b.P1[1] - b.P0[1]);
     const steps = Math.max(2, Math.ceil(len / 2.5));
@@ -152,7 +152,7 @@ export function renderAscii(o) {
       }
     }
   }
-  // tekstura debla: unutarnje ćelije
+  // trunk texture: inner cells
   for (const [k, v] of grid) {
     if (v.kind !== 'B') continue;
     const c = k % COLS, r = Math.floor(k / COLS);
@@ -162,7 +162,7 @@ export function renderAscii(o) {
       v.cls = 'tk';
     }
   }
-  // korijenje na tlu
+  // roots on the ground
   if (geo.total > 0 && geo.g > 0.25) {
     const r = groundRow[Math.floor(geo.BX / CW)];
     const half = Math.max(1, Math.round(geo.trunkW / CW / 2));
@@ -172,7 +172,7 @@ export function renderAscii(o) {
     if (geo.g > 0.55) { put(c0 - half - 2, r, '_', 'tr', 5, 'B'); put(c0 + half + 2, r, '_', 'tr', 5, 'B'); }
   }
 
-  // ── lišće ──
+  // ── leaves ──
   const leafCells = [];
   for (const lf of geo.leaves) {
     let c = Math.floor(lf.x / CW), r = Math.floor(lf.y / CH);
@@ -188,13 +188,13 @@ export function renderAscii(o) {
       leafCells.push([cc, rr]);
     }
   }
-  // sjemenka
+  // seed
   if (geo.total <= 0) {
     const c = Math.floor(geo.BX / CW);
     put(c, groundRow[c], 'o', 'l0', 9, 'l');
   }
 
-  // ── treperenje: neke ćelije lišća mijenjaju znak ──
+  // ── flicker: some leaf cells change their character ──
   const flick = new Map();
   for (let i = 0; i < Math.min(46, leafCells.length / 6); i++) {
     const [c, r] = leafCells[Math.floor(rnd() * leafCells.length)];
@@ -203,7 +203,7 @@ export function renderAscii(o) {
     flick.set(key(c, r), { alt: pick(GLYPHS, rnd()), dur: R(1.2, 4) });
   }
 
-  // ── redovi ──
+  // ── rows ──
   const pal = SEASON_LEAVES[geo.season] || SEASON_LEAVES.summer;
   let topRow = ROWS;
   for (const [k, v] of grid) if (v.kind !== 'g' && v.kind !== 's') topRow = Math.min(topRow, Math.floor(k / COLS));
@@ -241,7 +241,7 @@ export function renderAscii(o) {
     flush();
     const y = r * CH + CH - 3;
     const el = `<text y="${y}">${txt}</text>`;
-    // vjetar: što je red više, to se više njiše (smicanje)
+    // wind: the higher the row, the more it sways (shear)
     const h = clamp((baseRow - r) / Math.max(1, baseRow - topRow));
     const amp = Math.pow(h, 1.6) * windAmp;
     if (amp > 0.4) {
@@ -250,7 +250,7 @@ export function renderAscii(o) {
     } else rows += el;
   }
 
-  // ── matrix kiša u pozadini ──
+  // ── matrix rain in the background ──
   let rain = '';
   const usedCols = new Set();
   const nRain = 38;
@@ -268,7 +268,7 @@ export function renderAscii(o) {
     rain += `<g class="rn" style="animation-duration:${f1(R(5, 13))}s;animation-delay:-${f1(R(0, 13))}s"><text x="${xs.join(' ')}" y="${ys.join(' ')}" fill="url(#rg)">${esc(body)}<tspan class="hd">${esc(head)}</tspan></text></g>`;
   }
 
-  // ── padajući znakovi (lišće) i snijeg ──
+  // ── falling characters (leaves) and snow ──
   let fall = '';
   const nFall = geo.total > 0 ? Math.round(1 + (1 - geo.health) * 5 + (geo.season === 'autumn' ? 6 : 0)) : 0;
   for (let i = 0; i < nFall && leafCells.length; i++) {
@@ -286,7 +286,7 @@ export function renderAscii(o) {
     }
   }
 
-  // ── nebo: sunce, oblaci i ptice (dan) / mjesec, zvijezde i krijesnice (noć) ──
+  // ── sky: sun, clouds and birds (day) / moon, stars and fireflies (night) ──
   const art = (lines, col, row, cls, extra = '') => {
     let t = '';
     lines.forEach((line, i) => {
@@ -306,7 +306,7 @@ export function renderAscii(o) {
     const col = Math.floor(R(0, COLS - 20)) - Math.floor(COLS / 2);
     day += `<g class="cl" style="animation-duration:${Math.round(R(90, 150))}s;animation-delay:-${Math.round(R(0, 150))}s">${art(CLOUD, col, row, 'cd')}</g>`;
   }
-  // ptice: "v" koje mašu krilima ("v" <-> "-")
+  // birds: "v" flapping their wings ("v" <-> "-")
   for (let i = 0; i < 3; i++) {
     const y = R(40, 140), dur = R(28, 45);
     day += `<g><animateMotion path="M-30 ${f1(y)}q${W / 4} -18 ${W / 2} 0t${W / 2 + 60} 0" dur="${f1(dur)}s" begin="-${f1(R(0, dur))}s" repeatCount="indefinite"/><text class="bd"><tspan class="fp" x="0">v</tspan><tspan class="fp" x="0" style="animation-delay:-.25s">-</tspan></text></g>`;
@@ -329,16 +329,16 @@ export function renderAscii(o) {
   }
   night += '</g>';
 
-  // ── natpisi ──
+  // ── labels ──
   const nf = new Intl.NumberFormat(lang === 'hr' ? 'hr-HR' : 'en-US');
   const stage = T.stages[stageIndex(geo.total)];
   const health = Math.round(geo.health * 100);
-  const head = `${geo.login}@github:~$ ./zivo-stablo --grow`;
+  const head = `${geo.login}@github:~$ ./living-tree --grow`;
   let status = `[ ${stage.toUpperCase()} ] ${nf.format(geo.total)} ${T.contrib} | ${geo.active30} ${T.active} | ${lang === 'hr' ? 'zdravlje' : 'health'} ${health}%`;
   if (geo.streak >= 3) status += ` | ${T.streak(geo.streak)}`;
   if (geo.total <= 0) status += ` | ${T.seed.replace('…', '...')}`;
 
-  // ── stilovi: dan (svijetli terminal) i noć (crni Matrix) ──
+  // ── styles: day (light terminal) and night (black Matrix) ──
   const theme = o.theme || 'auto';
   const dayPal = DAY_LEAVES[geo.season] || DAY_LEAVES.summer;
   const leafCss = (p, w) => p.map((c, i) => `.l${i}{fill:${c}}`).join('') + w.map((c, i) => `.w${i}{fill:${c}}`).join('');

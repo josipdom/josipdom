@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="hr">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Živo stablo – preview</title>
+<title>Living tree – preview</title>
 <style>
   :root {
     --bg: #f4f2ec; --panel: #ffffff; --ink: #23281f; --muted: #6b7266; --line: #e3e0d6;
@@ -46,88 +46,88 @@
 </head>
 <body>
 <header>
-  <h1>🌳 Živo stablo</h1>
-  <p>Stablo raste s tvojim commitovima, a lišće mu ovisi o tome koliko si aktivan zadnjih 30 dana.</p>
+  <h1>🌳 Living tree</h1>
+  <p>The tree grows with your commits, and its leaves depend on how active you've been in the last 30 days.</p>
 </header>
 <main>
   <aside class="ui-panel">
-    <h2>Brzi scenariji</h2>
+    <h2>Quick scenarios</h2>
     <div class="ui-presets">
-      <button data-p="new">🌱 Novi profil</button>
-      <button data-p="hobby">🌿 Hobist</button>
-      <button data-p="pro">🌳 Vrijedan dev</button>
-      <button data-p="dead">🍂 Zapušteno</button>
+      <button data-p="new">🌱 New profile</button>
+      <button data-p="hobby">🌿 Hobbyist</button>
+      <button data-p="pro">🌳 Busy dev</button>
+      <button data-p="dead">🍂 Neglected</button>
     </div>
 
-    <h2>Podaci</h2>
+    <h2>Data</h2>
     <div class="ui-field">
-      <label for="login">GitHub korisnik <span>oblik stabla</span></label>
+      <label for="login">GitHub user <span>tree shape</span></label>
       <input id="login" type="text" value="josip" autocomplete="off">
     </div>
     <div class="ui-field">
-      <label for="totalR">Ukupno doprinosa <span id="totalV"></span></label>
+      <label for="totalR">Total contributions <span id="totalV"></span></label>
       <input id="totalR" type="range" min="0" max="1000" value="700">
     </div>
     <div class="ui-field">
-      <label for="active">Aktivni dani (zadnjih 30) <span id="activeV"></span></label>
+      <label for="active">Active days (last 30) <span id="activeV"></span></label>
       <input id="active" type="range" min="0" max="30" value="14">
     </div>
     <div class="ui-field">
-      <label for="since">Dana od zadnjeg commita <span id="sinceV"></span></label>
+      <label for="since">Days since last commit <span id="sinceV"></span></label>
       <input id="since" type="range" min="0" max="120" value="1">
     </div>
     <div class="ui-field">
-      <label for="streak">Niz dana zaredom <span id="streakV"></span></label>
+      <label for="streak">Streak (days) <span id="streakV"></span></label>
       <input id="streak" type="range" min="0" max="60" value="5">
     </div>
 
-    <h2>Izgled</h2>
+    <h2>Look</h2>
     <div class="ui-field">
-      <label for="style">Stil</label>
+      <label for="style">Style</label>
       <select id="style">
-        <option value="classic">🌳 Klasično</option>
+        <option value="classic">🌳 Classic</option>
         <option value="ascii">▓ ASCII / Matrix</option>
       </select>
     </div>
     <div class="ui-row ui-field">
       <div>
-        <label for="season">Godišnje doba</label>
+        <label for="season">Season</label>
         <select id="season">
-          <option value="auto">Auto (danas)</option>
-          <option value="spring">Proljeće</option>
-          <option value="summer">Ljeto</option>
-          <option value="autumn">Jesen</option>
-          <option value="winter">Zima</option>
+          <option value="auto">Auto (today)</option>
+          <option value="spring">Spring</option>
+          <option value="summer">Summer</option>
+          <option value="autumn">Autumn</option>
+          <option value="winter">Winter</option>
         </select>
       </div>
       <div>
-        <label for="theme">Tema</label>
+        <label for="theme">Day / night</label>
         <select id="theme">
-          <option value="time">Po satu (Zagreb)</option>
-          <option value="light">Svijetla</option>
-          <option value="dark">Tamna</option>
+          <option value="time">By the clock (Zagreb)</option>
+          <option value="light">Day (light)</option>
+          <option value="dark">Night (dark)</option>
         </select>
       </div>
     </div>
     <div class="ui-field">
-      <label for="lang">Jezik natpisa</label>
-      <select id="lang"><option value="hr">Hrvatski</option><option value="en">English</option></select>
+      <label for="lang">Label language</label>
+      <select id="lang"><option value="en">English</option><option value="hr">Hrvatski</option></select>
     </div>
     <div class="ui-row">
-      <button class="ui-primary" id="lapse">▶ Time-lapse rasta</button>
+      <button class="ui-primary" id="lapse">▶ Growth time-lapse</button>
       <button id="dl">⬇ SVG</button>
     </div>
   </aside>
 
   <section>
     <div class="ui-tabs" role="tablist">
-      <button role="tab" aria-selected="true" data-tab="lab">Laboratorij</button>
-      <button role="tab" aria-selected="false" data-tab="file">Generirani tree.svg</button>
+      <button role="tab" aria-selected="true" data-tab="lab">Lab</button>
+      <button role="tab" aria-selected="false" data-tab="file">Generated tree.svg</button>
     </div>
     <div id="lab">
       <div class="ui-stage" id="stage"></div>
       <div class="ui-stats" id="stats"></div>
-      <p class="ui-note">Ovo je isti kod koji će GitHub Action pokretati svaki dan – samo što ovdje brojke biraš sam. Isti korisnik uvijek daje isti oblik stabla; promijeni ime da vidiš drugo stablo.</p>
+      <p class="ui-note">This is the same code the GitHub Action runs every 30 minutes – here you just pick the numbers yourself. The same user always gets the same tree shape; change the name to see a different tree.</p>
     </div>
     <div id="file" class="ui-hidden">
       <div class="ui-stage" id="fileStage"></div>
@@ -146,7 +146,7 @@ const $ = (id) => document.getElementById(id);
 const MAXT = 5000;
 const toTotal = (v) => Math.round(Math.expm1((v / 1000) * Math.log(MAXT + 1)));
 const toSlider = (t) => Math.round((Math.log1p(t) / Math.log(MAXT + 1)) * 1000);
-const SEASON_HR = { spring: 'proljeće', summer: 'ljeto', autumn: 'jesen', winter: 'zima' };
+const SEASON_EN = { spring: 'spring', summer: 'summer', autumn: 'autumn', winter: 'winter' };
 
 let totalOverride = null;
 let lastSvg = '';
@@ -167,7 +167,7 @@ function state() {
 
 function render() {
   const s = state();
-  $('totalV').textContent = s.total.toLocaleString('hr-HR');
+  $('totalV').textContent = s.total.toLocaleString('en-US');
   $('activeV').textContent = s.active30;
   $('sinceV').textContent = s.sinceLast;
   $('streakV').textContent = s.streak;
@@ -178,11 +178,11 @@ function render() {
   const leaves = s.style === 'ascii' ? '—' : (lastSvg.match(/href="#L"/g) || []).length;
   const season = s.season === 'auto' ? seasonOf(new Date()) : s.season;
   $('stats').innerHTML = [
-    ['Faza', stageName(s.total, 'hr')],
-    ['Zdravlje', Math.round(healthOf(s.active30, s.sinceLast) * 100) + ' %'],
-    ['Listova', leaves],
-    ['Doba', SEASON_HR[season]],
-    ['Veličina SVG-a', (new Blob([lastSvg]).size / 1024).toFixed(0) + ' KB'],
+    ['Stage', stageName(s.total, s.lang)],
+    ['Health', Math.round(healthOf(s.active30, s.sinceLast) * 100) + ' %'],
+    ['Leaves', leaves],
+    ['Season', SEASON_EN[season]],
+    ['SVG size', (new Blob([lastSvg]).size / 1024).toFixed(0) + ' KB'],
     ['Render', ms.toFixed(0) + ' ms'],
   ].map(([k, v]) => `<span class="ui-chip">${k}: <b>${v}</b></span>`).join('');
 }
@@ -207,15 +207,15 @@ document.querySelectorAll('[data-p]').forEach((b) => b.addEventListener('click',
   render();
 }));
 
-// time-lapse: od 0 do odabranog broja doprinosa
+// time-lapse: from 0 to the selected number of contributions
 let raf = 0;
-function stopLapse() { cancelAnimationFrame(raf); raf = 0; $('lapse').textContent = '▶ Time-lapse rasta'; }
+function stopLapse() { cancelAnimationFrame(raf); raf = 0; $('lapse').textContent = '▶ Growth time-lapse'; }
 $('lapse').addEventListener('click', () => {
   if (raf) { stopLapse(); render(); return; }
   const target = state().total || 1500;
   const start = performance.now(), D = 9000;
   let lastFrame = 0;
-  $('lapse').textContent = '■ Zaustavi';
+  $('lapse').textContent = '■ Stop';
   const step = (now) => {
     const t = Math.min(1, (now - start) / D);
     if (now - lastFrame > 70 || t === 1) {
@@ -223,7 +223,7 @@ $('lapse').addEventListener('click', () => {
       totalOverride = Math.round(Math.expm1(t * Math.log1p(target)));
       render();
     }
-    if (t < 1) raf = requestAnimationFrame(step); else { raf = 0; $('lapse').textContent = '▶ Time-lapse rasta'; }
+    if (t < 1) raf = requestAnimationFrame(step); else { raf = 0; $('lapse').textContent = '▶ Growth time-lapse'; }
   };
   raf = requestAnimationFrame(step);
 });
@@ -235,7 +235,7 @@ $('dl').addEventListener('click', () => {
   a.click();
 });
 
-// tabovi
+// tabs
 document.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', async () => {
   document.querySelectorAll('[data-tab]').forEach((x) => x.setAttribute('aria-selected', x === b));
   $('lab').classList.toggle('ui-hidden', b.dataset.tab !== 'lab');
@@ -247,8 +247,8 @@ document.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click
     const ok = (await fetch(url, { method: 'HEAD' })).ok;
     $('fileStage').innerHTML = ok ? `<img src="${url}" alt="tree.svg">` : '';
     $('fileNote').innerHTML = ok
-      ? `Ovo je datoteka <code>dist/${fileName}</code> prikazana kao &lt;img&gt; – točno onako kako će je GitHub prikazati u README-u.`
-      : `Još nema generirane datoteke. Pokreni <code>npm run demo</code> (izmišljeni podaci) ili <code>npm run generate -- --user TVOJ_USERNAME</code>.`;
+      ? `This is the file <code>dist/${fileName}</code> shown as an &lt;img&gt; – exactly how GitHub will show it in your README.`
+      : `No generated file yet. Run <code>npm run demo</code> (made-up data) or <code>npm run generate -- --user YOUR_USERNAME</code>.`;
   }
 }));
 

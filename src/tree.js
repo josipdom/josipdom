@@ -1,8 +1,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
-//  Živo stablo – generator animiranog SVG-a.
-//  Čista funkcija bez ovisnosti: radi i u Node.js-u (GitHub Action) i u browseru
-//  (preview stranica). Isti "seed" (username) uvijek daje isto stablo – raste
-//  samo njegova veličina, gustoća lišća i boje.
+//  Living tree – animated SVG generator.
+//  Pure, dependency-free function: runs both in Node.js (GitHub Action) and in the
+//  browser (preview page). The same "seed" (username) always yields the same tree –
+//  only its size, leaf density and colours change.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const W = 840;
@@ -10,10 +10,10 @@ export const H = 480;
 export const GROUND = 404;
 const CX = W / 2;
 
-// Broj doprinosa pri kojem je stablo "odraslo" (logaritamska skala).
+// Number of contributions at which the tree is "fully grown" (logarithmic scale).
 export const FULL_GROWN = 2000;
 
-// ── Tekstovi ────────────────────────────────────────────────────────────────
+// ── Strings ───────────────────────────────────────────────────────────────────
 const STAGE_AT = [0, 1, 10, 50, 200, 600, 1500];
 export const STR = {
   hr: {
@@ -39,11 +39,11 @@ export function stageIndex(total) {
   for (let k = 0; k < STAGE_AT.length; k++) if (total >= STAGE_AT[k]) i = k;
   return i;
 }
-export function stageName(total, lang = 'hr') {
-  return (STR[lang] || STR.hr).stages[stageIndex(total)];
+export function stageName(total, lang = 'en') {
+  return (STR[lang] || STR.en).stages[stageIndex(total)];
 }
 
-// ── Pomoćne funkcije ────────────────────────────────────────────────────────
+// ── Helpers ─────────────────────────────────────────────────────────────────
 const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, t) => a + (b - a) * t;
 const easeOut = (t) => 1 - Math.pow(1 - t, 2.2);
@@ -74,7 +74,7 @@ function bez(P0, C, P1, t) {
   const u = 1 - t;
   return [u * u * P0[0] + 2 * u * t * C[0] + t * t * P1[0], u * u * P0[1] + 2 * u * t * C[1] + t * t * P1[1]];
 }
-// kut tangente mjereno od "gore", u smjeru kazaljke (kao SVG rotate)
+// tangent angle measured from "up", clockwise (like SVG rotate)
 function bezAng(P0, C, P1, t) {
   const dx = 2 * (1 - t) * (C[0] - P0[0]) + 2 * t * (P1[0] - C[0]);
   const dy = 2 * (1 - t) * (C[1] - P0[1]) + 2 * t * (P1[1] - C[1]);
@@ -87,9 +87,9 @@ function mixHex(a, b, t) {
   return '#' + ((1 << 24) | (ch(16) << 16) | (ch(8) << 8) | ch(0)).toString(16).slice(1);
 }
 
-// ── Statistika iz kalendara doprinosa ──────────────────────────────────────
+// ── Stats from the contribution calendar ──────────────────────────────────────
 /**
- * @param {{date:string,count:number}[]} days  dnevni doprinosi (zadnjih ~godinu dana)
+ * @param {{date:string,count:number}[]} days  daily contributions (last ~year)
  * @param {Date} now
  */
 export function computeStats(days, now = new Date()) {
@@ -103,13 +103,13 @@ export function computeStats(days, now = new Date()) {
   let active30 = 0, sinceLast = 999, streak = 0;
   for (let a = 0; a < 30; a++) if ((byAge.get(a) || 0) > 0) active30++;
   for (let a = 0; a < 400; a++) if ((byAge.get(a) || 0) > 0) { sinceLast = a; break; }
-  // niz se računa od danas ili jučer (dan još nije gotov)
+  // the streak counts from today or yesterday (today isn't over yet)
   let a = (byAge.get(0) || 0) > 0 ? 0 : 1;
   while ((byAge.get(a) || 0) > 0) { streak++; a++; }
   return { active30, sinceLast, streak };
 }
 
-/** Zdravlje 0..1 – koliko je stablo olistalo i zeleno. */
+/** Health 0..1 – how leafy and green the tree is. */
 export function healthOf(active30, sinceLast) {
   let h = 1 - Math.exp(-active30 / 6);
   if (sinceLast > 5) h *= Math.exp(-(sinceLast - 5) / 20);
@@ -125,7 +125,7 @@ export function seasonOf(date = new Date(), hemisphere = 'north') {
   return 'winter';
 }
 
-// ── Struktura stabla (deterministička, u punoj veličini) ───────────────────
+// ── Tree structure (deterministic, at full size) ───────────────────
 const MAXD = 7;
 const structCache = new Map();
 
@@ -138,11 +138,11 @@ export function buildStructure(seed) {
 
   const leaf = (t, side, a) => ({
     t, side, a,
-    s: R(0.75, 1.2), // veličina
-    k: r(),          // prag gustoće (lišće se ne "premješta" kad se gustoća mijenja)
-    k2: r(),         // prag venuća
+    s: R(0.75, 1.2), // size
+    k: r(),          // density threshold (leaves don't "jump around" when density changes)
+    k2: r(),         // withering threshold
     c: Math.floor(r() * 5),
-    f: r() < 0.35 ? 0 : 1 + Math.floor(r() * 4), // klasa treperenja (0 = mirno)
+    f: r() < 0.35 ? 0 : 1 + Math.floor(r() * 4), // flutter class (0 = still)
   });
 
   function make(depth, rel, len, wr, at, born) {
@@ -184,17 +184,17 @@ export function buildStructure(seed) {
 
   const root = make(0, R(-0.06, 0.06), 100, 1, 0, 0);
 
-  // normaliziraj vremena rođenja tako da je stablo potpuno izraslo na g = 1
+  // normalise birth times so the tree is fully grown at g = 1
   let maxEnd = 0;
   (function walkT(n) { maxEnd = Math.max(maxEnd, n.born + n.dur); n.children.forEach(walkT); })(root);
   (function normT(n) { n.born /= maxEnd; n.dur /= maxEnd; n.children.forEach(normT); })(root);
 
   const st = { root, count, seed: key, fit: 1 };
-  // izmjeri odraslo stablo i skaliraj ga da stane u sliku
+  // measure the grown tree and scale it to fit the image
   const ctx = baseCtx(st, { g: 1, scale: 1, measure: true });
   walk(root, ctx, [CX, GROUND], 0, 20);
   const b = ctx.bbox;
-  // krošnju djelomično centriramo pomicanjem debla suprotno od nagiba
+  // partly centre the crown by shifting the trunk against its lean
   const shift = -0.7 * ((b.minX + b.maxX) / 2 - CX);
   const fitH = (GROUND - 30) / (GROUND - b.minY + 12);
   const fitL = (CX - 40) / (CX - b.minX - shift + 12);
@@ -205,7 +205,7 @@ export function buildStructure(seed) {
   return st;
 }
 
-// ── Palete ─────────────────────────────────────────────────────────────────
+// ── Palettes ─────────────────────────────────────────────────────────────────
 const PALETTES = {
   spring: ['#6cc04a', '#8fd35f', '#4fa83d', '#a5dc6e', '#5cb848'],
   summer: ['#3d8b37', '#4f9e3f', '#2f7531', '#64ae48', '#3a8040'],
@@ -236,7 +236,7 @@ function baseCtx(st, o) {
   };
 }
 
-// ── Crtanje grane ──────────────────────────────────────────────────────────
+// ── Drawing a branch ──────────────────────────────────────────────────────────
 function branchPath(P0, C, P1, w0, w1) {
   const a0 = bezAng(P0, C, P1, 0), a1 = bezAng(P0, C, P1, 1);
   const am = (a0 + a1) / 2;
@@ -296,7 +296,7 @@ function walk(n, ctx, P0, parentAng, w0) {
   if (ctx.collect) ctx.collect.branches.push({ P0, C, P1, w0, w1, depth: n.depth, terminal });
   let out = `<path class="b" d="${branchPath(P0, C, P1, w0, w1)}"/>`;
 
-  // lišće duž tankih grana
+  // leaves along thin branches
   for (const lf of n.leaves) {
     if (lf.k >= ctx.density) continue;
     if (lf.t * L < 2) continue;
@@ -309,7 +309,7 @@ function walk(n, ctx, P0, parentAng, w0) {
     out += leafEl(ctx, P[0] + Math.cos(a) * off, P[1] + Math.sin(a) * off, la, lf);
   }
 
-  // grane-djeca
+  // child branches
   let kids = '';
   for (const c of vis) {
     const cs = easeOut(clamp((ctx.g - c.born) / c.dur));
@@ -318,7 +318,7 @@ function walk(n, ctx, P0, parentAng, w0) {
   }
   out += kids;
 
-  // pupoljak/kruna lišća na vrhu grane
+  // bud / leaf cluster at the branch tip
   if (terminal) {
     for (const lf of n.tip) {
       if (lf.k >= Math.max(ctx.density, 0.12)) continue;
@@ -341,7 +341,7 @@ function walk(n, ctx, P0, parentAng, w0) {
   return out;
 }
 
-// ── Scena ──────────────────────────────────────────────────────────────────
+// ── Scene ──────────────────────────────────────────────────────────────────
 export const groundY = (x) => GROUND + 14 * ((x - CX) / CX) ** 2 + 3 * Math.sin((x - CX) / 70);
 const backY = (x) => GROUND - 34 - 16 * Math.sin(x / 210 + 0.8) - 8 * Math.sin(x / 90);
 
@@ -396,23 +396,23 @@ ${leafCss(palDark, WITHERED.map((c) => mixHex(c, '#101820', 0.3)))}`;
 }
 
 /**
- * Glavna funkcija – vraća SVG kao string.
+ * Main function – returns the SVG as a string.
  * @param {object} o
- * @param {string} o.login        GitHub korisnik (ujedno i seed oblika stabla)
- * @param {number} o.total        ukupan broj doprinosa (svih godina)
- * @param {number} o.active30     broj dana s barem jednim doprinosom u zadnjih 30
- * @param {number} o.sinceLast    dana od zadnjeg doprinosa
- * @param {number} [o.streak]     trenutni niz dana
+ * @param {string} o.login        GitHub user (also the seed for the tree's shape)
+ * @param {number} o.total        total contributions (all years)
+ * @param {number} o.active30     days with at least one contribution in the last 30
+ * @param {number} o.sinceLast    days since the last contribution
+ * @param {number} [o.streak]     current streak in days
  * @param {'auto'|'spring'|'summer'|'autumn'|'winter'} [o.season]
  * @param {'auto'|'light'|'dark'} [o.theme]
  * @param {'hr'|'en'} [o.lang]
  * @param {Date} [o.now]
- * @param {boolean} [o.label]     prikaži tekst s brojkama
+ * @param {boolean} [o.label]     show the stats label
  */
 export function renderTree(o) {
   const login = o.login || 'github';
   const total = Math.max(0, Math.round(o.total || 0));
-  const lang = STR[o.lang] ? o.lang : 'hr';
+  const lang = STR[o.lang] ? o.lang : 'en';
   const T = STR[lang];
   const theme = o.theme || 'auto';
   const now = o.now || new Date();
@@ -448,10 +448,10 @@ export function renderTree(o) {
   out.push(`<g clip-path="url(#cp)">`);
   out.push(`<rect width="${W}" height="${H}" fill="url(#sky)"/>`);
 
-  // sunce
+  // sun
   out.push(`<g class="sun"><circle cx="702" cy="78" r="70" fill="url(#glow)"/><circle cx="702" cy="78" r="20" fill="#fff6cf"/></g>`);
 
-  // noć: zvijezde, mjesec
+  // night: stars, moon
   let night = `<g class="nt"><path d="M700 58a22 22 0 1 0 22 30 17 17 0 1 1-22-30z" fill="#f4efd6"/><circle cx="706" cy="80" r="46" fill="url(#glow)" opacity=".25"/>`;
   for (let i = 0; i < 46; i++) {
     const x = R(10, W - 10), y = R(8, 250), r = R(0.5, 1.5);
@@ -459,7 +459,7 @@ export function renderTree(o) {
   }
   out.push(night + `</g>`);
 
-  // oblaci
+  // clouds
   for (let i = 0; i < 3; i++) {
     const y = R(40, 150), s = R(0.7, 1.25), x = R(0, W);
     out.push(`<g class="cl" style="animation-duration:${Math.round(R(110, 170))}s;animation-delay:-${Math.round(R(0, 160))}s"><g transform="translate(${f1(x - W / 2)} ${f1(y)}) scale(${f2(s)})"><ellipse cx="0" cy="0" rx="34" ry="13"/><ellipse cx="-18" cy="3" rx="22" ry="10"/><ellipse cx="20" cy="-6" rx="22" ry="13"/><ellipse cx="2" cy="-12" rx="18" ry="12"/></g></g>`);
@@ -467,7 +467,7 @@ export function renderTree(o) {
 
   out.push(`<path class="hb" d="${hillPath(backY)}"/>`);
 
-  // stablo
+  // tree
   if (total <= 0) {
     out.push(`<g transform="translate(${f1(BX)} ${f1(BY - 2)})"><ellipse class="sd" cx="0" cy="0" rx="9" ry="6" transform="rotate(-18)"/><path d="M-3 -3q3 -2 6 1" stroke="#5c3a20" stroke-width="1" fill="none"/></g>`);
   } else {
@@ -493,7 +493,7 @@ export function renderTree(o) {
     const tree = walk(st.root, ctx, [BX, BY + 6], 0, trunkW);
     out.push(`<g>${roots}${tree}</g>`);
 
-    // padajuće lišće
+    // falling leaves
     const nFall = Math.min(ctx.leafPos.length, Math.round(1 + (1 - health) * 5 + (season === 'autumn' ? 7 : 0)));
     for (let i = 0; i < nFall; i++) {
       const [x, y, cls] = ctx.leafPos[Math.floor(rnd() * ctx.leafPos.length)];
@@ -507,7 +507,7 @@ export function renderTree(o) {
     }
   }
 
-  // tlo + trava
+  // ground + grass
   out.push(`<path class="hf" d="${hillPath(groundY)}"/>`);
   if (total > 0) out.push(`<ellipse cx="${f1(BX + 6)}" cy="${f1(BY + 3)}" rx="${f1(20 + 150 * scaleAll * st.fit)}" ry="${f1(3 + 6 * scaleAll)}" fill="#0c2a0c" opacity=".13"/>`);
   let grass = '';
@@ -527,14 +527,14 @@ export function renderTree(o) {
     }
   }
 
-  // snijeg
+  // snow
   if (season === 'winter') {
     for (let i = 0; i < 55; i++) {
       out.push(`<circle class="sn" cx="${f1(R(-40, W))}" cy="-8" r="${f1(R(0.8, 2.2))}" style="animation-duration:${f1(R(8, 16))}s;animation-delay:-${f1(R(0, 16))}s"/>`);
     }
   }
 
-  // krijesnice (samo noću) – više aktivnosti = više krijesnica
+  // fireflies (night only) – more activity = more fireflies
   let ff = `<g class="nt">`;
   const nff = total > 0 ? Math.round(2 + active30 / 2.5) : 0;
   for (let i = 0; i < nff; i++) {
@@ -544,7 +544,7 @@ export function renderTree(o) {
   }
   out.push(ff + `</g>`);
 
-  // natpis
+  // label
   if (o.label !== false) {
     const nf = new Intl.NumberFormat(lang === 'hr' ? 'hr-HR' : 'en-US');
     const left = `@${login} · ${T.stages[stageIndex(total)]}${total <= 0 ? ' – ' + T.seed : ''}`;
@@ -562,8 +562,8 @@ function esc(s) {
 }
 
 /**
- * Geometrija stabla bez crtanja (za alternativne stilove, npr. ASCII).
- * Prima iste opcije kao renderTree.
+ * Tree geometry without drawing (for alternative styles, e.g. ASCII).
+ * Takes the same options as renderTree.
  */
 export function treeGeometry(o) {
   const login = o.login || 'github';

@@ -1,7 +1,7 @@
 {
-  "name": "zivo-stablo",
+  "name": "living-tree",
   "version": "1.0.0",
-  "description": "Živo stablo za GitHub profil – raste s tvojim commitovima i njiše se na vjetru.",
+  "description": "A living tree for your GitHub profile – grows with your commits and sways in the wind.",
   "type": "module",
   "private": true,
   "scripts": {
