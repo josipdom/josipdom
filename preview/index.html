@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="hr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Živo stablo – preview</title>
+<style>
+  :root {
+    --bg: #f4f2ec; --panel: #ffffff; --ink: #23281f; --muted: #6b7266; --line: #e3e0d6;
+    --accent: #3f8f3a; --accent-ink: #fff; --chip: #eef3e8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #11150f; --panel: #1a1f18; --ink: #e5eadf; --muted: #9aa393; --line: #2b3228; --accent: #6cc04a; --accent-ink: #0d1a0b; --chip: #222a1f; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+  header { padding: 22px 24px 6px; max-width: 1280px; margin: 0 auto; }
+  header h1 { margin: 0; font-size: 22px; letter-spacing: -.01em; }
+  header p { margin: 4px 0 0; color: var(--muted); }
+  main { display: grid; grid-template-columns: 300px 1fr; gap: 20px; padding: 16px 24px 40px; max-width: 1280px; margin: 0 auto; }
+  @media (max-width: 860px) { main { grid-template-columns: 1fr; padding: 12px 16px 32px; } header { padding: 18px 16px 4px; } }
+  .ui-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+  .ui-panel h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 10px; }
+  .ui-field { margin-bottom: 14px; }
+  .ui-field label { display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 4px; }
+  .ui-field label span { font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  input[type=text], input[type=number], select { width: 100%; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; }
+  .ui-row { display: flex; gap: 8px; }
+  .ui-row > * { flex: 1; }
+  button { font: inherit; font-weight: 600; padding: 8px 10px; border-radius: 9px; border: 1px solid var(--line); background: var(--chip); color: var(--ink); cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.ui-primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .ui-presets { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 14px; }
+  .ui-stage { border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,.12); line-height: 0; }
+  .ui-stage svg, .ui-stage img { width: 100%; height: auto; display: block; }
+  .ui-stats { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0; }
+  .ui-chip { background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; font-size: 13px; }
+  .ui-chip b { font-variant-numeric: tabular-nums; }
+  .ui-tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+  .ui-tabs button[aria-selected=true] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .ui-note { color: var(--muted); font-size: 13px; margin-top: 14px; }
+  .ui-note code { background: var(--chip); padding: 1px 5px; border-radius: 5px; }
+  .ui-hidden { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🌳 Živo stablo</h1>
+  <p>Stablo raste s tvojim commitovima, a lišće mu ovisi o tome koliko si aktivan zadnjih 30 dana.</p>
+</header>
+<main>
+  <aside class="ui-panel">
+    <h2>Brzi scenariji</h2>
+    <div class="ui-presets">
+      <button data-p="new">🌱 Novi profil</button>
+      <button data-p="hobby">🌿 Hobist</button>
+      <button data-p="pro">🌳 Vrijedan dev</button>
+      <button data-p="dead">🍂 Zapušteno</button>
+    </div>
+
+    <h2>Podaci</h2>
+    <div class="ui-field">
+      <label for="login">GitHub korisnik <span>oblik stabla</span></label>
+      <input id="login" type="text" value="josip" autocomplete="off">
+    </div>
+    <div class="ui-field">
+      <label for="totalR">Ukupno doprinosa <span id="totalV"></span></label>
+      <input id="totalR" type="range" min="0" max="1000" value="700">
+    </div>
+    <div class="ui-field">
+      <label for="active">Aktivni dani (zadnjih 30) <span id="activeV"></span></label>
+      <input id="active" type="range" min="0" max="30" value="14">
+    </div>
+    <div class="ui-field">
+      <label for="since">Dana od zadnjeg commita <span id="sinceV"></span></label>
+      <input id="since" type="range" min="0" max="120" value="1">
+    </div>
+    <div class="ui-field">
+      <label for="streak">Niz dana zaredom <span id="streakV"></span></label>
+      <input id="streak" type="range" min="0" max="60" value="5">
+    </div>
+
+    <h2>Izgled</h2>
+    <div class="ui-field">
+      <label for="style">Stil</label>
+      <select id="style">
+        <option value="classic">🌳 Klasično</option>
+        <option value="ascii">▓ ASCII / Matrix</option>
+      </select>
+    </div>
+    <div class="ui-row ui-field">
+      <div>
+        <label for="season">Godišnje doba</label>
+        <select id="season">
+          <option value="auto">Auto (danas)</option>
+          <option value="spring">Proljeće</option>
+          <option value="summer">Ljeto</option>
+          <option value="autumn">Jesen</option>
+          <option value="winter">Zima</option>
+        </select>
+      </div>
+      <div>
+        <label for="theme">Tema</label>
+        <select id="theme">
+          <option value="time">Po satu (Zagreb)</option>
+          <option value="light">Svijetla</option>
+          <option value="dark">Tamna</option>
+        </select>
+      </div>
+    </div>
+    <div class="ui-field">
+      <label for="lang">Jezik natpisa</label>
+      <select id="lang"><option value="hr">Hrvatski</option><option value="en">English</option></select>
+    </div>
+    <div class="ui-row">
+      <button class="ui-primary" id="lapse">▶ Time-lapse rasta</button>
+      <button id="dl">⬇ SVG</button>
+    </div>
+  </aside>
+
+  <section>
+    <div class="ui-tabs" role="tablist">
+      <button role="tab" aria-selected="true" data-tab="lab">Laboratorij</button>
+      <button role="tab" aria-selected="false" data-tab="file">Generirani tree.svg</button>
+    </div>
+    <div id="lab">
+      <div class="ui-stage" id="stage"></div>
+      <div class="ui-stats" id="stats"></div>
+      <p class="ui-note">Ovo je isti kod koji će GitHub Action pokretati svaki dan – samo što ovdje brojke biraš sam. Isti korisnik uvijek daje isti oblik stabla; promijeni ime da vidiš drugo stablo.</p>
+    </div>
+    <div id="file" class="ui-hidden">
+      <div class="ui-stage" id="fileStage"></div>
+      <p class="ui-note" id="fileNote"></p>
+    </div>
+  </section>
+</main>
+
+<script type="module">
+import { renderTree, stageName, healthOf, seasonOf } from '/src/tree.js';
+import { renderAscii } from '/src/ascii.js';
+import { themeByTime } from '/src/sun.js';
+const themeNow = () => ($('theme').value === 'time' ? themeByTime(new Date()) : $('theme').value);
+
+const $ = (id) => document.getElementById(id);
+const MAXT = 5000;
+const toTotal = (v) => Math.round(Math.expm1((v / 1000) * Math.log(MAXT + 1)));
+const toSlider = (t) => Math.round((Math.log1p(t) / Math.log(MAXT + 1)) * 1000);
+const SEASON_HR = { spring: 'proljeće', summer: 'ljeto', autumn: 'jesen', winter: 'zima' };
+
+let totalOverride = null;
+let lastSvg = '';
+
+function state() {
+  return {
+    login: $('login').value.trim() || 'github',
+    total: totalOverride ?? toTotal(+$('totalR').value),
+    active30: +$('active').value,
+    sinceLast: +$('since').value,
+    streak: +$('streak').value,
+    season: $('season').value,
+    theme: themeNow(),
+    lang: $('lang').value,
+    style: $('style').value,
+  };
+}
+
+function render() {
+  const s = state();
+  $('totalV').textContent = s.total.toLocaleString('hr-HR');
+  $('activeV').textContent = s.active30;
+  $('sinceV').textContent = s.sinceLast;
+  $('streakV').textContent = s.streak;
+  const t0 = performance.now();
+  lastSvg = s.style === 'ascii' ? renderAscii(s) : renderTree(s);
+  const ms = performance.now() - t0;
+  $('stage').innerHTML = lastSvg;
+  const leaves = s.style === 'ascii' ? '—' : (lastSvg.match(/href="#L"/g) || []).length;
+  const season = s.season === 'auto' ? seasonOf(new Date()) : s.season;
+  $('stats').innerHTML = [
+    ['Faza', stageName(s.total, 'hr')],
+    ['Zdravlje', Math.round(healthOf(s.active30, s.sinceLast) * 100) + ' %'],
+    ['Listova', leaves],
+    ['Doba', SEASON_HR[season]],
+    ['Veličina SVG-a', (new Blob([lastSvg]).size / 1024).toFixed(0) + ' KB'],
+    ['Render', ms.toFixed(0) + ' ms'],
+  ].map(([k, v]) => `<span class="ui-chip">${k}: <b>${v}</b></span>`).join('');
+}
+
+for (const id of ['login', 'totalR', 'active', 'since', 'streak', 'season', 'theme', 'lang', 'style']) {
+  $(id).addEventListener('input', () => { totalOverride = null; stopLapse(); render(); });
+}
+
+const PRESETS = {
+  new: { total: 3, active: 3, since: 0, streak: 2 },
+  hobby: { total: 140, active: 6, since: 3, streak: 0 },
+  pro: { total: 1800, active: 24, since: 0, streak: 21 },
+  dead: { total: 600, active: 0, since: 75, streak: 0 },
+};
+document.querySelectorAll('[data-p]').forEach((b) => b.addEventListener('click', () => {
+  const p = PRESETS[b.dataset.p];
+  stopLapse();
+  totalOverride = null;
+  $('totalR').value = toSlider(p.total);
+  $('active').value = p.active; $('since').value = p.since; $('streak').value = p.streak;
+  totalOverride = p.total;
+  render();
+}));
+
+// time-lapse: od 0 do odabranog broja doprinosa
+let raf = 0;
+function stopLapse() { cancelAnimationFrame(raf); raf = 0; $('lapse').textContent = '▶ Time-lapse rasta'; }
+$('lapse').addEventListener('click', () => {
+  if (raf) { stopLapse(); render(); return; }
+  const target = state().total || 1500;
+  const start = performance.now(), D = 9000;
+  let lastFrame = 0;
+  $('lapse').textContent = '■ Zaustavi';
+  const step = (now) => {
+    const t = Math.min(1, (now - start) / D);
+    if (now - lastFrame > 70 || t === 1) {
+      lastFrame = now;
+      totalOverride = Math.round(Math.expm1(t * Math.log1p(target)));
+      render();
+    }
+    if (t < 1) raf = requestAnimationFrame(step); else { raf = 0; $('lapse').textContent = '▶ Time-lapse rasta'; }
+  };
+  raf = requestAnimationFrame(step);
+});
+
+$('dl').addEventListener('click', () => {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([lastSvg], { type: 'image/svg+xml' }));
+  a.download = 'tree.svg';
+  a.click();
+});
+
+// tabovi
+document.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', async () => {
+  document.querySelectorAll('[data-tab]').forEach((x) => x.setAttribute('aria-selected', x === b));
+  $('lab').classList.toggle('ui-hidden', b.dataset.tab !== 'lab');
+  $('file').classList.toggle('ui-hidden', b.dataset.tab !== 'file');
+  if (b.dataset.tab === 'file') {
+    const theme = themeNow();
+    const fileName = $('style').value === 'ascii' ? `tree-ascii-${theme}.svg` : `tree-${theme}.svg`;
+    const url = `/dist/${fileName}?${Date.now()}`;
+    const ok = (await fetch(url, { method: 'HEAD' })).ok;
+    $('fileStage').innerHTML = ok ? `<img src="${url}" alt="tree.svg">` : '';
+    $('fileNote').innerHTML = ok
+      ? `Ovo je datoteka <code>dist/${fileName}</code> prikazana kao &lt;img&gt; – točno onako kako će je GitHub prikazati u README-u.`
+      : `Još nema generirane datoteke. Pokreni <code>npm run demo</code> (izmišljeni podaci) ili <code>npm run generate -- --user TVOJ_USERNAME</code>.`;
+  }
+}));
+
+render();
+</script>
+</body>
+</html>
