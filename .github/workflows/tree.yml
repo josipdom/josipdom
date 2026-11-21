@@ -1,8 +1,8 @@
-name: 🌳 Water the tree
+name: 🌳 Update the tree
 
 on:
   schedule:
-    - cron: "7,37 * * * *"   # every 30 min (day/night follows sunrise and sunset)
+    - cron: "7,37 * * * *"   # every 30 min (weather + day/night)
   workflow_dispatch:         # manual run from the "Actions" tab
   push:
     branches: [main]
@@ -28,12 +28,12 @@ jobs:
       - name: Generate the tree
         run: node scripts/generate.mjs --out dist
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_USER: ${{ github.repository_owner }}
           TREE_LANG: en        # or: hr
           TREE_SEASON: auto    # or: spring / summer / autumn / winter
           TREE_DAYNIGHT: time  # time = day/night by the clock, theme = by the visitor's theme
-          TREE_LAT: "45.815"   # location for sunrise/sunset (Zagreb)
+          TREE_PLACE: Zagreb   # weather and sunrise/sunset for this place
+          TREE_LAT: "45.815"
           TREE_LON: "15.982"
           TREE_TZ: Europe/Zagreb
 

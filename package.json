@@ -1,12 +1,12 @@
 {
   "name": "living-tree",
   "version": "1.0.0",
-  "description": "A living tree for your GitHub profile – grows with your commits and sways in the wind.",
+  "description": "A living tree for your GitHub profile – always full-grown, dressed in the real weather of Zagreb, by day or by night.",
   "type": "module",
   "private": true,
   "scripts": {
     "preview": "node scripts/serve.mjs",
-    "demo": "node scripts/generate.mjs --demo",
+    "demo": "node scripts/generate.mjs --weather storm",
     "generate": "node scripts/generate.mjs"
   },
   "engines": {

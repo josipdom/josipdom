@@ -5,6 +5,8 @@
 //  only its size, leaf density and colours change.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { normWeather, isWet, isGloomy, weatherLine } from './weather.js';
+
 export const W = 840;
 export const H = 480;
 export const GROUND = 404;
@@ -213,7 +215,7 @@ const PALETTES = {
   winter: ['#4d6b47', '#5d7a52', '#3f5c3c', '#6b8560', '#556f4c'],
 };
 const WITHERED = ['#c9a94a', '#b98c3a', '#d7bf5e', '#a07436', '#bfa055'];
-const SEASON_DENSITY = { spring: 0.9, summer: 1, autumn: 0.8, winter: 0.38 };
+const SEASON_DENSITY = { spring: 0.9, summer: 1, autumn: 0.8, winter: 0.5 };
 
 function baseCtx(st, o) {
   return {
@@ -351,11 +353,14 @@ function hillPath(fn) {
   return d + `L${W + 10} ${H + 2}L-2 ${H + 2}Z`;
 }
 
-function css(theme, season, pal, palDark) {
+function css(theme, season, pal, palDark, wx, drift) {
+  const gloomy = isGloomy(wx);
   const leafCss = (p, w) => p.map((c, i) => `.g${i}{fill:${c}}`).join('') + w.map((c, i) => `.y${i}{fill:${c}}`).join('');
   const winter = season === 'winter';
   const light = `
-.sk1{stop-color:#bfe0f5}.sk2{stop-color:#f1f7ec}
+.sk1{stop-color:${gloomy ? '#aebcc6' : '#bfe0f5'}}.sk2{stop-color:${gloomy ? '#e4e9e7' : '#f1f7ec'}}
+.cr{fill:${isWet(wx) || wx.kind === 'storm' ? '#8d9aa3' : '#d5dde2'}}.rn{stroke:#5a86a8;stroke-width:1.2;stroke-linecap:round;opacity:.7}
+.fg{fill:#eef2f1}.fl{fill:#fff}
 .hb{fill:${winter ? '#e3ebf1' : '#acd08d'}}.hf{fill:${winter ? '#f4f7fa' : '#80b35c'}}
 .gs{stroke:${winter ? '#9fb39a' : '#5d9843'};stroke-width:1.3;fill:none;stroke-linecap:round}
 .b{fill:#6b4a33}.rt{fill:#5d402c}.sd{fill:#8a5a36}
@@ -364,7 +369,8 @@ function css(theme, season, pal, palDark) {
 .bl1{fill:#f7c1d6}.bl2{fill:#fff4f8}.fr{fill:#d6402f}.gf{fill:#f3d34a}.sn{fill:#fff}
 ${leafCss(pal, WITHERED)}`;
   const dark = `
-.sk1{stop-color:#08111f}.sk2{stop-color:#1c2c40}
+.sk1{stop-color:${gloomy ? '#0a0f14' : '#08111f'}}.sk2{stop-color:${gloomy ? '#1d252c' : '#1c2c40'}}
+.cr{fill:#56616b;opacity:.55}.rn{stroke:#8fb9d6}.fg{fill:#7d8a92}.fl{fill:#dbe9ff}
 .hb{fill:${winter ? '#5d6c7e' : '#22402a'}}.hf{fill:${winter ? '#8494a7' : '#1b3523'}}
 .gs{stroke:${winter ? '#6c7d8f' : '#2f5a35'}}
 .b{fill:#4b3426}.rt{fill:#3f2c20}
@@ -382,12 +388,18 @@ ${leafCss(palDark, WITHERED.map((c) => mixHex(c, '#101820', 0.3)))}`;
 .cl{animation:dr 120s linear infinite}
 .st{animation:tw 3s ease-in-out infinite alternate}
 .sn{animation:sn 11s linear infinite}
+.rn{animation:rn 1s linear infinite}
+.fd{animation:fd 22s ease-in-out infinite alternate}
+.fl{opacity:0;animation:lt 7s linear infinite}
 @keyframes fa{from{transform:rotate(-7deg)}to{transform:rotate(9deg)}}
 @keyframes fb{from{transform:rotate(5deg) scale(1)}to{transform:rotate(-10deg) scale(.9)}}
 @keyframes gw{from{transform:rotate(-4deg)}to{transform:rotate(7deg)}}
 @keyframes dr{from{transform:translateX(-260px)}to{transform:translateX(1100px)}}
 @keyframes tw{from{opacity:.25}to{opacity:1}}
-@keyframes sn{from{transform:translate(0,0)}to{transform:translate(46px,520px)}}
+@keyframes sn{from{transform:translate(0,0)}to{transform:translate(${f1(30 + drift * 0.8)}px,520px)}}
+@keyframes rn{from{transform:translate(0,0)}to{transform:translate(${f1(drift * 0.35)}px,520px)}}
+@keyframes fd{from{transform:translateX(-40px)}to{transform:translateX(40px)}}
+@keyframes lt{0%,88%,100%{opacity:0}89%{opacity:.8}90%{opacity:.1}92%{opacity:.55}95%{opacity:0}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important}}`;
   let s = light + motion;
   if (theme === 'dark') s += dark;
@@ -425,6 +437,11 @@ export function renderTree(o) {
   const scaleAll = 0.16 + 0.84 * Math.pow(g, 1.15);
   const rnd = rng(login + ':scene');
   const R = (a, b) => a + (b - a) * rnd();
+  const wx = normWeather(o.weather);
+  const windK = clamp((wx.wind || 0) / 50);
+  const wet = isWet(wx);
+  const gloomy = isGloomy(wx);
+  const drift = -Math.round(wx.wind * 2.2);
 
   const st = buildStructure(login);
   const BX = st.baseX, BY = groundY(BX);
@@ -435,8 +452,8 @@ export function renderTree(o) {
 
   const out = [];
   out.push(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-labelledby="tt">`);
-  out.push(`<title id="tt">${esc(T.title(login))} – ${esc(T.stages[stageIndex(total)])}</title>`);
-  out.push(`<style>${css(theme, season, pal, palDark)}</style>`);
+  out.push(`<title id="tt">${esc(T.title(login))} – ${esc(weatherLine(wx))}</title>`);
+  out.push(`<style>${css(theme, season, pal, palDark, wx, drift)}</style>`);
   out.push(`<defs>
 <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="sk1"/><stop offset="1" class="sk2"/></linearGradient>
 <radialGradient id="glow"><stop offset="0" stop-color="#fff3b8" stop-opacity=".95"/><stop offset=".35" stop-color="#ffe98a" stop-opacity=".5"/><stop offset="1" stop-color="#ffe98a" stop-opacity="0"/></radialGradient>
@@ -447,22 +464,27 @@ export function renderTree(o) {
 </defs>`.replace(/\n/g, ''));
   out.push(`<g clip-path="url(#cp)">`);
   out.push(`<rect width="${W}" height="${H}" fill="url(#sky)"/>`);
+  if (wx.kind === 'storm') out.push(`<rect class="fl" width="${W}" height="${H}"/>`);
 
   // sun
-  out.push(`<g class="sun"><circle cx="702" cy="78" r="70" fill="url(#glow)"/><circle cx="702" cy="78" r="20" fill="#fff6cf"/></g>`);
+  if (!gloomy) out.push(`<g class="sun"><circle cx="702" cy="78" r="70" fill="url(#glow)"/><circle cx="702" cy="78" r="20" fill="#fff6cf"/></g>`);
 
   // night: stars, moon
-  let night = `<g class="nt"><path d="M700 58a22 22 0 1 0 22 30 17 17 0 1 1-22-30z" fill="#f4efd6"/><circle cx="706" cy="80" r="46" fill="url(#glow)" opacity=".25"/>`;
-  for (let i = 0; i < 46; i++) {
+  let night = '<g class="nt">';
+  if (!gloomy) night += `<path d="M700 58a22 22 0 1 0 22 30 17 17 0 1 1-22-30z" fill="#f4efd6"/><circle cx="706" cy="80" r="46" fill="url(#glow)" opacity=".25"/>`;
+  const nStars = { clear: 46, partly: 22 }[wx.kind] ?? 0;
+  for (let i = 0; i < nStars; i++) {
     const x = R(10, W - 10), y = R(8, 250), r = R(0.5, 1.5);
     night += `<circle class="st" cx="${f1(x)}" cy="${f1(y)}" r="${f1(r)}" fill="#fff" style="animation-duration:${f1(R(2, 5))}s;animation-delay:-${f1(R(0, 5))}s"/>`;
   }
   out.push(night + `</g>`);
 
   // clouds
-  for (let i = 0; i < 3; i++) {
-    const y = R(40, 150), s = R(0.7, 1.25), x = R(0, W);
-    out.push(`<g class="cl" style="animation-duration:${Math.round(R(110, 170))}s;animation-delay:-${Math.round(R(0, 160))}s"><g transform="translate(${f1(x - W / 2)} ${f1(y)}) scale(${f2(s)})"><ellipse cx="0" cy="0" rx="34" ry="13"/><ellipse cx="-18" cy="3" rx="22" ry="10"/><ellipse cx="20" cy="-6" rx="22" ry="13"/><ellipse cx="2" cy="-12" rx="18" ry="12"/></g></g>`);
+  const nCloud = { clear: 2, partly: 4, cloudy: 8, fog: 5, drizzle: 7, rain: 8, snow: 7, storm: 9 }[wx.kind] ?? 3;
+  for (let i = 0; i < nCloud; i++) {
+    const y = R(gloomy ? 20 : 40, gloomy ? 120 : 150), s = R(0.7, 1.25) * (gloomy ? 1.5 : 1), x = R(0, W);
+    const d = Math.round(R(110, 170) / (1 + windK * 2.5));
+    out.push(`<g class="cl${gloomy ? ' cr' : ''}" style="animation-duration:${d}s;animation-delay:-${Math.round(R(0, d))}s"><g transform="translate(${f1(x - W / 2)} ${f1(y)}) scale(${f2(s)})"><ellipse cx="0" cy="0" rx="34" ry="13"/><ellipse cx="-18" cy="3" rx="22" ry="10"/><ellipse cx="20" cy="-6" rx="22" ry="13"/><ellipse cx="2" cy="-12" rx="18" ry="12"/></g></g>`);
   }
 
   out.push(`<path class="hb" d="${hillPath(backY)}"/>`);
@@ -476,8 +498,9 @@ export function renderTree(o) {
       scale: st.fit * scaleAll,
       leafScale: 0.72 + 0.28 * scaleAll,
       density, wither, season, health,
-      wind: 1 + (1 - scaleAll) * 1.3,
+      wind: (1 + (1 - scaleAll) * 1.3) * (0.6 + windK * 2.2),
     });
+    ctx.T = Math.round((8 - windK * 3) * 10) / 10;
     const trunkW = Math.max(1.4, 26 * st.fit * (0.07 + 0.93 * Math.pow(g, 1.25)));
     let roots = '';
     if (g > 0.3) {
@@ -494,7 +517,7 @@ export function renderTree(o) {
     out.push(`<g>${roots}${tree}</g>`);
 
     // falling leaves
-    const nFall = Math.min(ctx.leafPos.length, Math.round(1 + (1 - health) * 5 + (season === 'autumn' ? 7 : 0)));
+    const nFall = Math.min(ctx.leafPos.length, Math.round(1 + (1 - health) * 5 + (season === 'autumn' ? 7 : 0) + windK * 6));
     for (let i = 0; i < nFall; i++) {
       const [x, y, cls] = ctx.leafPos[Math.floor(rnd() * ctx.leafPos.length)];
       const dy = groundY(x) - y + R(-2, 6);
@@ -528,15 +551,36 @@ export function renderTree(o) {
   }
 
   // snow
-  if (season === 'winter') {
-    for (let i = 0; i < 55; i++) {
+  if (wet) {
+    const n = wx.kind === 'drizzle' ? [30, 50, 80][wx.intensity - 1] : wx.kind === 'storm' ? 190 : [70, 120, 180][wx.intensity - 1];
+    const [d0, d1] = wx.kind === 'drizzle' ? [2, 3] : wx.kind === 'storm' ? [0.55, 0.9] : [0.75, 1.2];
+    const len = wx.kind === 'drizzle' ? 4 : 11;
+    const dx = (drift * 0.35 / 520) * len;
+    let rain = '';
+    for (let i = 0; i < n; i++) {
+      const d = R(d0, d1);
+      const x = R(0, W - drift * 0.4);
+      rain += `<line class="rn" x1="${f1(x)}" y1="-14" x2="${f1(x + dx)}" y2="${f1(-14 + len)}" style="animation-duration:${f1(d)}s;animation-delay:-${f1(R(0, d))}s"/>`;
+    }
+    out.push(rain);
+  }
+  if (wx.kind === 'fog') {
+    let fog = '';
+    for (let i = 0; i < 7; i++) {
+      fog += `<ellipse class="fg fd" cx="${f1(R(0, W))}" cy="${f1(R(GROUND - 120, GROUND + 10))}" rx="${f1(R(140, 260))}" ry="${f1(R(18, 34))}" opacity="${f2(R(0.35, 0.6))}" style="animation-duration:${f1(R(16, 28))}s;animation-delay:-${f1(R(0, 20))}s"/>`;
+    }
+    out.push(fog);
+  }
+  if (wx.kind === 'snow') {
+    for (let i = 0; i < [45, 80, 130][wx.intensity - 1]; i++) {
       out.push(`<circle class="sn" cx="${f1(R(-40, W))}" cy="-8" r="${f1(R(0.8, 2.2))}" style="animation-duration:${f1(R(8, 16))}s;animation-delay:-${f1(R(0, 16))}s"/>`);
     }
   }
 
   // fireflies (night only) – more activity = more fireflies
   let ff = `<g class="nt">`;
-  const nff = total > 0 ? Math.round(2 + active30 / 2.5) : 0;
+  const warm = wx.temp == null || wx.temp >= 12;
+  const nff = total > 0 && warm && !wet && wx.kind !== 'snow' && wx.kind !== 'fog' ? Math.round(2 + active30 / 2.5) : 0;
   for (let i = 0; i < nff; i++) {
     const x = R(BX - 300, BX + 300), y = R(GROUND - 230, GROUND - 20);
     const rx = R(15, 45), ry = R(10, 30);
@@ -547,9 +591,9 @@ export function renderTree(o) {
   // label
   if (o.label !== false) {
     const nf = new Intl.NumberFormat(lang === 'hr' ? 'hr-HR' : 'en-US');
-    const left = `@${login} · ${T.stages[stageIndex(total)]}${total <= 0 ? ' – ' + T.seed : ''}`;
-    let right = `${nf.format(total)} ${T.contrib} · ${active30} ${T.active}`;
-    if ((o.streak || 0) >= 3) right += ` · ${T.streak(o.streak)}`;
+    const left = `@${login} · ${o.place || 'Zagreb'}`;
+    const right = weatherLine(wx) + (o.updated ? ` · updated ${o.updated}` : '');
+    void nf;
     out.push(`<text class="tx" x="20" y="${H - 16}">${esc(left)}</text><text class="tx" x="${W - 20}" y="${H - 16}" text-anchor="end">${esc(right)}</text>`);
   }
 

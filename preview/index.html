@@ -47,46 +47,44 @@
 <body>
 <header>
   <h1>🌳 Living tree</h1>
-  <p>The tree grows with your commits, and its leaves depend on how active you've been in the last 30 days.</p>
+  <p>Always full-grown, dressed in the weather outside in Zagreb, by day or by night.</p>
 </header>
 <main>
   <aside class="ui-panel">
-    <h2>Quick scenarios</h2>
+    <h2>Weather</h2>
     <div class="ui-presets">
-      <button data-p="new">🌱 New profile</button>
-      <button data-p="hobby">🌿 Hobbyist</button>
-      <button data-p="pro">🌳 Busy dev</button>
-      <button data-p="dead">🍂 Neglected</button>
-    </div>
-
-    <h2>Data</h2>
-    <div class="ui-field">
-      <label for="login">GitHub user <span>tree shape</span></label>
-      <input id="login" type="text" value="josip" autocomplete="off">
+      <button class="ui-primary" id="live">📡 Live Zagreb</button>
+      <button id="dl">⬇ SVG</button>
     </div>
     <div class="ui-field">
-      <label for="totalR">Total contributions <span id="totalV"></span></label>
-      <input id="totalR" type="range" min="0" max="1000" value="700">
+      <label for="wx">Sky</label>
+      <select id="wx">
+        <option value="clear">☀️ Clear</option>
+        <option value="partly" selected>⛅ Partly cloudy</option>
+        <option value="cloudy">☁️ Overcast</option>
+        <option value="fog">🌫️ Fog</option>
+        <option value="drizzle">🌦️ Drizzle</option>
+        <option value="rain">🌧️ Rain</option>
+        <option value="heavy">🌧️ Heavy rain</option>
+        <option value="snow">🌨️ Snow</option>
+        <option value="storm">⛈️ Thunderstorm</option>
+      </select>
     </div>
     <div class="ui-field">
-      <label for="active">Active days (last 30) <span id="activeV"></span></label>
-      <input id="active" type="range" min="0" max="30" value="14">
+      <label for="temp">Temperature <span id="tempV"></span></label>
+      <input id="temp" type="range" min="-15" max="38" value="14">
     </div>
     <div class="ui-field">
-      <label for="since">Days since last commit <span id="sinceV"></span></label>
-      <input id="since" type="range" min="0" max="120" value="1">
-    </div>
-    <div class="ui-field">
-      <label for="streak">Streak (days) <span id="streakV"></span></label>
-      <input id="streak" type="range" min="0" max="60" value="5">
+      <label for="wind">Wind <span id="windV"></span></label>
+      <input id="wind" type="range" min="0" max="70" value="8">
     </div>
 
     <h2>Look</h2>
     <div class="ui-field">
       <label for="style">Style</label>
       <select id="style">
-        <option value="classic">🌳 Classic</option>
         <option value="ascii">▓ ASCII / Matrix</option>
+        <option value="classic">🌳 Classic</option>
       </select>
     </div>
     <div class="ui-row ui-field">
@@ -104,30 +102,26 @@
         <label for="theme">Day / night</label>
         <select id="theme">
           <option value="time">By the clock (Zagreb)</option>
-          <option value="light">Day (light)</option>
-          <option value="dark">Night (dark)</option>
+          <option value="light">Day</option>
+          <option value="dark">Night</option>
         </select>
       </div>
     </div>
     <div class="ui-field">
-      <label for="lang">Label language</label>
-      <select id="lang"><option value="en">English</option><option value="hr">Hrvatski</option></select>
-    </div>
-    <div class="ui-row">
-      <button class="ui-primary" id="lapse">▶ Growth time-lapse</button>
-      <button id="dl">⬇ SVG</button>
+      <label for="login">GitHub user <span>tree shape</span></label>
+      <input id="login" type="text" value="josipdom" autocomplete="off">
     </div>
   </aside>
 
   <section>
     <div class="ui-tabs" role="tablist">
       <button role="tab" aria-selected="true" data-tab="lab">Lab</button>
-      <button role="tab" aria-selected="false" data-tab="file">Generated tree.svg</button>
+      <button role="tab" aria-selected="false" data-tab="file">Generated file</button>
     </div>
     <div id="lab">
       <div class="ui-stage" id="stage"></div>
       <div class="ui-stats" id="stats"></div>
-      <p class="ui-note">This is the same code the GitHub Action runs every 30 minutes – here you just pick the numbers yourself. The same user always gets the same tree shape; change the name to see a different tree.</p>
+      <p class="ui-note">This is the same code the GitHub Action runs every 30 minutes, except there it uses the real weather. The same user always gets the same tree shape.</p>
     </div>
     <div id="file" class="ui-hidden">
       <div class="ui-stage" id="fileStage"></div>
@@ -137,101 +131,69 @@
 </main>
 
 <script type="module">
-import { renderTree, stageName, healthOf, seasonOf } from '/src/tree.js';
+import { renderTree, FULL_GROWN, seasonOf } from '/src/tree.js';
 import { renderAscii } from '/src/ascii.js';
 import { themeByTime } from '/src/sun.js';
-const themeNow = () => ($('theme').value === 'time' ? themeByTime(new Date()) : $('theme').value);
+import { PRESETS, weatherFrom, fetchWeather, weatherLine, DEFAULT_PLACE } from '/src/weather.js';
 
 const $ = (id) => document.getElementById(id);
-const MAXT = 5000;
-const toTotal = (v) => Math.round(Math.expm1((v / 1000) * Math.log(MAXT + 1)));
-const toSlider = (t) => Math.round((Math.log1p(t) / Math.log(MAXT + 1)) * 1000);
-const SEASON_EN = { spring: 'spring', summer: 'summer', autumn: 'autumn', winter: 'winter' };
+const themeNow = () => ($('theme').value === 'time' ? themeByTime(new Date()) : $('theme').value);
+const hm = () => new Date().toLocaleTimeString('en-GB', { timeZone: DEFAULT_PLACE.tz, hour: '2-digit', minute: '2-digit' });
 
-let totalOverride = null;
+let live = null;   // live weather object while "Live Zagreb" is active
 let lastSvg = '';
 
-function state() {
-  return {
-    login: $('login').value.trim() || 'github',
-    total: totalOverride ?? toTotal(+$('totalR').value),
-    active30: +$('active').value,
-    sinceLast: +$('since').value,
-    streak: +$('streak').value,
-    season: $('season').value,
-    theme: themeNow(),
-    lang: $('lang').value,
-    style: $('style').value,
-  };
+function weather() {
+  return live || weatherFrom(PRESETS[$('wx').value], { temp: +$('temp').value, wind: +$('wind').value });
 }
 
 function render() {
-  const s = state();
-  $('totalV').textContent = s.total.toLocaleString('en-US');
-  $('activeV').textContent = s.active30;
-  $('sinceV').textContent = s.sinceLast;
-  $('streakV').textContent = s.streak;
+  const wx = weather();
+  $('tempV').textContent = `${$('temp').value} °C`;
+  $('windV').textContent = `${$('wind').value} km/h`;
+  const s = {
+    login: $('login').value.trim() || 'github',
+    total: FULL_GROWN, active30: 30, sinceLast: 0, streak: 0,
+    season: $('season').value, theme: themeNow(), lang: 'en',
+    place: DEFAULT_PLACE.name, weather: wx, updated: hm(),
+  };
   const t0 = performance.now();
-  lastSvg = s.style === 'ascii' ? renderAscii(s) : renderTree(s);
+  lastSvg = $('style').value === 'ascii' ? renderAscii(s) : renderTree(s);
   const ms = performance.now() - t0;
   $('stage').innerHTML = lastSvg;
-  const leaves = s.style === 'ascii' ? '—' : (lastSvg.match(/href="#L"/g) || []).length;
   const season = s.season === 'auto' ? seasonOf(new Date()) : s.season;
   $('stats').innerHTML = [
-    ['Stage', stageName(s.total, s.lang)],
-    ['Health', Math.round(healthOf(s.active30, s.sinceLast) * 100) + ' %'],
-    ['Leaves', leaves],
-    ['Season', SEASON_EN[season]],
+    ['Weather', (live ? '📡 ' : '') + weatherLine(wx)],
+    ['Season', season],
+    ['Time', s.theme === 'light' ? 'day' : 'night'],
     ['SVG size', (new Blob([lastSvg]).size / 1024).toFixed(0) + ' KB'],
     ['Render', ms.toFixed(0) + ' ms'],
   ].map(([k, v]) => `<span class="ui-chip">${k}: <b>${v}</b></span>`).join('');
 }
 
-for (const id of ['login', 'totalR', 'active', 'since', 'streak', 'season', 'theme', 'lang', 'style']) {
-  $(id).addEventListener('input', () => { totalOverride = null; stopLapse(); render(); });
+for (const id of ['wx', 'temp', 'wind']) {
+  $(id).addEventListener('input', () => { live = null; $('live').textContent = '📡 Live Zagreb'; render(); });
 }
+for (const id of ['style', 'season', 'theme', 'login']) $(id).addEventListener('input', render);
 
-const PRESETS = {
-  new: { total: 3, active: 3, since: 0, streak: 2 },
-  hobby: { total: 140, active: 6, since: 3, streak: 0 },
-  pro: { total: 1800, active: 24, since: 0, streak: 21 },
-  dead: { total: 600, active: 0, since: 75, streak: 0 },
-};
-document.querySelectorAll('[data-p]').forEach((b) => b.addEventListener('click', () => {
-  const p = PRESETS[b.dataset.p];
-  stopLapse();
-  totalOverride = null;
-  $('totalR').value = toSlider(p.total);
-  $('active').value = p.active; $('since').value = p.since; $('streak').value = p.streak;
-  totalOverride = p.total;
+$('live').addEventListener('click', async () => {
+  $('live').textContent = '⏳ Loading…';
+  const w = await fetchWeather(DEFAULT_PLACE);
+  live = w;
+  $('live').textContent = w.ok ? '📡 Live ✔' : '📡 Offline';
+  if (w.ok) {
+    const preset = Object.keys(PRESETS).find((k) => PRESETS[k] === w.code);
+    if (preset) $('wx').value = preset;
+    if (w.temp != null) $('temp').value = w.temp;
+    $('wind').value = w.wind;
+  }
   render();
-}));
-
-// time-lapse: from 0 to the selected number of contributions
-let raf = 0;
-function stopLapse() { cancelAnimationFrame(raf); raf = 0; $('lapse').textContent = '▶ Growth time-lapse'; }
-$('lapse').addEventListener('click', () => {
-  if (raf) { stopLapse(); render(); return; }
-  const target = state().total || 1500;
-  const start = performance.now(), D = 9000;
-  let lastFrame = 0;
-  $('lapse').textContent = '■ Stop';
-  const step = (now) => {
-    const t = Math.min(1, (now - start) / D);
-    if (now - lastFrame > 70 || t === 1) {
-      lastFrame = now;
-      totalOverride = Math.round(Math.expm1(t * Math.log1p(target)));
-      render();
-    }
-    if (t < 1) raf = requestAnimationFrame(step); else { raf = 0; $('lapse').textContent = '▶ Growth time-lapse'; }
-  };
-  raf = requestAnimationFrame(step);
 });
 
 $('dl').addEventListener('click', () => {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([lastSvg], { type: 'image/svg+xml' }));
-  a.download = 'tree.svg';
+  a.download = $('style').value === 'ascii' ? 'tree-ascii.svg' : 'tree.svg';
   a.click();
 });
 
@@ -245,10 +207,10 @@ document.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click
     const fileName = $('style').value === 'ascii' ? `tree-ascii-${theme}.svg` : `tree-${theme}.svg`;
     const url = `/dist/${fileName}?${Date.now()}`;
     const ok = (await fetch(url, { method: 'HEAD' })).ok;
-    $('fileStage').innerHTML = ok ? `<img src="${url}" alt="tree.svg">` : '';
+    $('fileStage').innerHTML = ok ? `<img src="${url}" alt="${fileName}">` : '';
     $('fileNote').innerHTML = ok
-      ? `This is the file <code>dist/${fileName}</code> shown as an &lt;img&gt; – exactly how GitHub will show it in your README.`
-      : `No generated file yet. Run <code>npm run demo</code> (made-up data) or <code>npm run generate -- --user YOUR_USERNAME</code>.`;
+      ? `This is the file <code>dist/${fileName}</code> shown as an &lt;img&gt;, exactly how GitHub shows it in your README.`
+      : `No generated file yet. Run <code>node scripts/generate.mjs</code>.`;
   }
 }));
 

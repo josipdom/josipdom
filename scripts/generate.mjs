@@ -1,20 +1,22 @@
 // ─────────────────────────────────────────────────────────────────────────────
-//  Generates dist/tree.svg (+ light/dark variants) from real GitHub data.
+//  Generates the tree SVGs: always a full-grown tree, dressed in the current
+//  weather of the chosen place (Zagreb by default), by day or by night.
 //
 //  Examples:
-//    node scripts/generate.mjs --demo                    (made-up data, no internet needed)
-//    node scripts/generate.mjs --user YOUR_USERNAME     (needs GITHUB_TOKEN or the `gh` CLI)
-//    node scripts/generate.mjs --user x --lang hr --season winter
+//    node scripts/generate.mjs                      (live weather from Open-Meteo)
+//    node scripts/generate.mjs --weather rain       (force a weather: clear, partly, cloudy,
+//                                                    fog, drizzle, rain, heavy, snow, storm)
+//    node scripts/generate.mjs --at 2026-11-21T19:00:00Z --weather snow
 //
-//  In a GitHub Action the username and token are taken from the environment.
+//  In a GitHub Action the username is taken from the environment.
 // ─────────────────────────────────────────────────────────────────────────────
 import { mkdir, writeFile } from 'node:fs/promises';
-import { execSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { renderTree, computeStats, stageName, healthOf } from '../src/tree.js';
+import { renderTree, FULL_GROWN, seasonOf } from '../src/tree.js';
 import { renderAscii } from '../src/ascii.js';
 import { sunTimes, themeByTime, DEFAULT_LAT, DEFAULT_LON } from '../src/sun.js';
+import { fetchWeather, weatherFrom, weatherLine, PRESETS } from '../src/weather.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -38,90 +40,39 @@ const season = args.season || process.env.TREE_SEASON || 'auto';
 const hemisphere = args.hemisphere || process.env.TREE_HEMISPHERE || 'north';
 // day/night: 'time' = by actual sunrise/sunset at the location, 'theme' = by the visitor's theme
 const daynight = args.daynight || process.env.TREE_DAYNIGHT || 'time';
+const place = args.place || process.env.TREE_PLACE || 'Zagreb';
 const lat = Number(args.lat || process.env.TREE_LAT || DEFAULT_LAT);
 const lon = Number(args.lon || process.env.TREE_LON || DEFAULT_LON);
+const tz = process.env.TREE_TZ || 'Europe/Zagreb';
+const forced = args.weather || process.env.TREE_WEATHER;
 
-function getToken() {
-  if (process.env.GITHUB_TOKEN) return process.env.GITHUB_TOKEN;
-  if (process.env.GH_TOKEN) return process.env.GH_TOKEN;
-  try { return execSync('gh auth token', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { return null; }
-}
-
-async function gql(token, query, variables) {
-  const res = await fetch('https://api.github.com/graphql', {
-    method: 'POST',
-    headers: { Authorization: `bearer ${token}`, 'Content-Type': 'application/json', 'User-Agent': 'zivo-stablo' },
-    body: JSON.stringify({ query, variables }),
-  });
-  if (!res.ok) throw new Error(`GitHub API ${res.status}: ${await res.text()}`);
-  const j = await res.json();
-  if (j.errors) throw new Error('GitHub API: ' + j.errors.map((e) => e.message).join('; '));
-  return j.data;
-}
-
-async function fetchGithub(login, token) {
-  // 1) calendar for the last year + list of years with contributions
-  const q1 = `query($login:String!){user(login:$login){contributionsCollection{contributionYears contributionCalendar{totalContributions weeks{contributionDays{date contributionCount}}}}}}`;
-  const d1 = await gql(token, q1, { login });
-  if (!d1.user) throw new Error(`User "${login}" does not exist.`);
-  const cc = d1.user.contributionsCollection;
-  const days = cc.contributionCalendar.weeks.flatMap((w) => w.contributionDays).map((d) => ({ date: d.date, count: d.contributionCount }));
-
-  // 2) totals per year (the API returns at most one year per query, so we use aliases)
-  const now = new Date();
-  const years = cc.contributionYears;
-  const parts = years.map((y) => {
-    const to = y === now.getUTCFullYear() ? now.toISOString() : `${y}-12-31T23:59:59Z`;
-    return `y${y}:contributionsCollection(from:"${y}-01-01T00:00:00Z",to:"${to}"){contributionCalendar{totalContributions}}`;
-  });
-  let total = 0;
-  if (parts.length) {
-    const d2 = await gql(token, `query($login:String!){user(login:$login){${parts.join(' ')}}}`, { login });
-    for (const y of years) total += d2.user[`y${y}`].contributionCalendar.totalContributions;
-  }
-  return { total, days };
-}
-
-function demoData() {
-  // made-up but believable calendar: ~4 commits a week, with breaks
-  const days = [];
-  const now = new Date();
-  let seed = 7;
-  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-  for (let i = 365; i >= 0; i--) {
-    const d = new Date(now.getTime() - i * 864e5);
-    const weekend = d.getUTCDay() === 0 || d.getUTCDay() === 6;
-    const pause = i > 120 && i < 150;
-    const count = !pause && rnd() < (weekend ? 0.3 : 0.6) ? 1 + Math.floor(rnd() * 6) : 0;
-    days.push({ date: d.toISOString().slice(0, 10), count });
-  }
-  const lastYear = days.reduce((s, d) => s + d.count, 0);
-  return { total: Number(args.total) || lastYear + 640, days };
-}
-
-const hm = (d) => d ? d.toLocaleTimeString('en-GB', { timeZone: process.env.TREE_TZ || 'Europe/Zagreb', hour: '2-digit', minute: '2-digit' }) : '-';
+const hm = (d) => (d ? d.toLocaleTimeString('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit' }) : '-');
 
 async function main() {
-  const login = args.user || process.env.GH_USER || process.env.GITHUB_REPOSITORY_OWNER || 'demo';
-  let data;
-  if (args.demo) {
-    data = demoData();
-    console.log('ℹ️  Demo mode – made-up data.');
+  const login = args.user || process.env.GH_USER || process.env.GITHUB_REPOSITORY_OWNER || 'github';
+  const now = args.at ? new Date(args.at) : new Date();
+
+  let weather;
+  if (forced) {
+    if (!(forced in PRESETS)) throw new Error(`Unknown weather "${forced}". Use one of: ${Object.keys(PRESETS).join(', ')}`);
+    weather = weatherFrom(PRESETS[forced], {
+      temp: args.temp != null ? Number(args.temp) : null,
+      wind: args.wind != null ? Number(args.wind) : undefined,
+    });
   } else {
-    const token = getToken();
-    if (!token) {
-      console.error('✖ No GitHub token. Set GITHUB_TOKEN, log in with `gh auth login`, or run with --demo.');
-      process.exit(1);
-    }
-    console.log(`⏳ Fetching contributions for @${login}…`);
-    data = await fetchGithub(login, token);
+    console.log(`⏳ Fetching the weather for ${place}…`);
+    weather = await fetchWeather({ name: place, lat, lon, tz });
+    if (!weather.ok) console.warn(`⚠️  Weather unavailable (${weather.error}), drawing a calm sky.`);
   }
 
-  const now = args.at ? new Date(args.at) : new Date();
-  const stats = computeStats(data.days, now);
-  // main files (tree.svg, tree-ascii.svg): by the clock or by the visitor's theme
   const mainTheme = daynight === 'time' ? themeByTime(now, lat, lon) : 'auto';
-  const base = { login, total: data.total, ...stats, lang, season, hemisphere };
+  const base = {
+    login,
+    // always a full-grown, healthy tree
+    total: FULL_GROWN, active30: 30, sinceLast: 0, streak: 0,
+    lang, season, hemisphere, now, place, weather,
+    updated: hm(now),
+  };
 
   await mkdir(outDir, { recursive: true });
   const files = { 'tree.svg': mainTheme, 'tree-light.svg': 'light', 'tree-dark.svg': 'dark' };
@@ -129,22 +80,23 @@ async function main() {
     await writeFile(join(outDir, name), renderTree({ ...base, theme }));
   }
   for (const theme of ['auto', 'light', 'dark']) {
-    await writeFile(join(outDir, theme === 'auto' ? 'tree-ascii.svg' : `tree-ascii-${theme}.svg`), renderAscii({ ...base, theme: theme === 'auto' ? mainTheme : theme }));
+    const name = theme === 'auto' ? 'tree-ascii.svg' : `tree-ascii-${theme}.svg`;
+    await writeFile(join(outDir, name), renderAscii({ ...base, theme: theme === 'auto' ? mainTheme : theme }));
   }
+
   const sun = sunTimes(now, lat, lon);
   const info = {
     login,
-    total: data.total,
-    ...stats,
-    health: Math.round(healthOf(stats.active30, stats.sinceLast) * 100) / 100,
-    stage: stageName(data.total, lang),
-    generatedAt: now.toISOString(),
+    place,
+    weather,
+    season: season === 'auto' ? seasonOf(now, hemisphere) : season,
     daynight: daynight === 'time' ? (mainTheme === 'light' ? 'day' : 'night') : 'theme',
     sunrise: sun.sunrise?.toISOString() ?? null,
     sunset: sun.sunset?.toISOString() ?? null,
+    generatedAt: now.toISOString(),
   };
   await writeFile(join(outDir, 'stats.json'), JSON.stringify(info, null, 2));
-  console.log(`🌳 @${login}: ${info.total} contributions · ${info.stage} · ${stats.active30} active days / 30 · health ${Math.round(info.health * 100)}%`);
+  console.log(`🌳 @${login} · ${place}: ${weatherLine(weather)} · ${info.season}`);
   if (daynight === 'time') console.log(`${mainTheme === 'light' ? '☀️  day' : '🌙 night'} (sunrise ${hm(sun.sunrise)}, sunset ${hm(sun.sunset)} local time)`);
   console.log(`✔ Saved to ${outDir}`);
 }
