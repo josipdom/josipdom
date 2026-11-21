@@ -134,7 +134,7 @@ const structCache = new Map();
 export function buildStructure(seed) {
   const key = String(seed || 'tree').toLowerCase();
   if (structCache.has(key)) return structCache.get(key);
-  const r = rng(key);
+  let r = rng(key);
   const R = (a, b) => a + (b - a) * r();
   let count = 0;
 
@@ -185,6 +185,38 @@ export function buildStructure(seed) {
   }
 
   const root = make(0, R(-0.06, 0.06), 100, 1, 0, 0);
+
+  // A few extra branches for a fuller, more even crown: where a main limb only
+  // branches to one side, give it a branch on the other side too. Uses its own
+  // random stream, so the original shape of the tree stays exactly the same.
+  r = rng(key + ':extra');
+  (function addExtra(n) {
+    const kids = n.children.slice();
+    kids.forEach(addExtra);
+    if (n.depth < 1 || n.depth > 2) return;
+    const sides = kids.filter((c) => Math.abs(c.rel) >= 0.45);
+    if (sides.length !== 1) return;
+    const sign = -Math.sign(sides[0].rel);
+    const at = R(0.35, 0.85);
+    n.children.push(make(n.depth + 1, sign * R(0.5, 0.85), n.len * R(0.55, 0.72), R(0.55, 0.68), at, n.born + n.dur * at * R(0.6, 1)));
+  })(root);
+
+  // ...and two more on whichever side of the crown is thinner, reaching outwards and up
+  {
+    const m = baseCtx({ root, fit: 1 }, { g: 1, scale: 1, measure: true });
+    m.nodes = [];
+    walk(root, m, [CX, GROUND], 0, 20);
+    const tips = m.nodes.filter((p) => p.n.children.length === 0);
+    const left = tips.filter((p) => p.P1[0] < CX).length;
+    const side = left > tips.length - left ? 1 : -1;
+    const midY = tips.reduce((s, p) => s + p.P1[1], 0) / tips.length;
+    const cand = m.nodes.filter((p) => (p.n.depth === 2 || p.n.depth === 3) && (p.P1[0] - CX) * side > 0 && p.P1[1] < midY + 20);
+    for (let i = 0; i < 2 && cand.length; i++) {
+      const { n } = cand.splice(Math.floor(r() * cand.length), 1)[0];
+      const at = R(0.45, 0.85);
+      n.children.push(make(n.depth + 1, side * R(0.45, 0.75), n.len * R(0.6, 0.75), R(0.55, 0.68), at, n.born + n.dur * at * R(0.6, 1)));
+    }
+  }
 
   // normalise birth times so the tree is fully grown at g = 1
   let maxEnd = 0;
@@ -285,6 +317,7 @@ function walk(n, ctx, P0, parentAng, w0) {
   const w1 = Math.max(ctx.minW, w0 * (terminal ? 0.45 : 0.8));
 
   if (ctx.measure) {
+    if (ctx.nodes) ctx.nodes.push({ n, P1 });
     ctx.bbox.minX = Math.min(ctx.bbox.minX, P1[0]);
     ctx.bbox.maxX = Math.max(ctx.bbox.maxX, P1[0]);
     ctx.bbox.minY = Math.min(ctx.bbox.minY, P1[1]);
