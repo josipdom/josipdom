@@ -2,7 +2,7 @@
 //  Living tree – ASCII / "Matrix" style.
 //  Uses the same geometry as the classic tree (treeGeometry), but rasterises
 //  it into a character grid: branches become | / \ _, leaves become keyboard
-//  symbols, and a green "rain" of characters falls in the background.
+//  symbols. Rain, snow and fog only appear when the real weather has them.
 // ─────────────────────────────────────────────────────────────────────────────
 import { W, H, STR, groundY, treeGeometry } from './tree.js';
 import { normWeather, isWet, isGloomy, weatherLine } from './weather.js';
@@ -264,24 +264,6 @@ export function renderAscii(o) {
     } else rows += el;
   }
 
-  // ── matrix rain in the background ──
-  let rain = '';
-  const usedCols = new Set();
-  const nRain = wet || wx.kind === 'snow' ? 0 : gloomy ? 18 : 38;
-  for (let i = 0; i < nRain; i++) {
-    let c = Math.floor(rnd() * COLS);
-    if (usedCols.has(c)) c = Math.floor(rnd() * COLS);
-    usedCols.add(c);
-    const n = Math.floor(R(6, 19));
-    const x = c * CW + CW / 2;
-    let chars = '';
-    const xs = [], ys = [];
-    for (let j = 0; j < n; j++) { chars += pick(GLYPHS, rnd()); xs.push(x); ys.push(j * CH); }
-    const head = chars.slice(-1);
-    const body = [...chars].slice(0, -1).join('');
-    rain += `<g class="rn" style="animation-duration:${f1(R(5, 13))}s;animation-delay:-${f1(R(0, 13))}s"><text x="${xs.join(' ')}" y="${ys.join(' ')}" fill="url(#rg)">${esc(body)}<tspan class="hd">${esc(head)}</tspan></text></g>`;
-  }
-
   const art = (lines, col, row, cls, extra = '') => {
     let t = '';
     lines.forEach((line, i) => {
@@ -395,7 +377,6 @@ export function renderAscii(o) {
   const base = `
 text{font-family:ui-monospace,'Cascadia Mono',Consolas,'DejaVu Sans Mono','Courier New',monospace;font-size:12px;text-anchor:middle}
 .l0,.l1,.l2,.l3,.su,.mn,.ff{font-weight:700}
-.rn{animation:rn linear infinite}
 .fk{animation:fk 2s steps(1) infinite}
 .sn{animation:sn 12s linear infinite}
 .hx{text-anchor:start;font-weight:700}.hx2{text-anchor:start}
@@ -408,7 +389,6 @@ text{font-family:ui-monospace,'Cascadia Mono',Consolas,'DejaVu Sans Mono','Couri
 .fd{animation:fd 20s ease-in-out infinite alternate}
 .lt{opacity:0;animation:lt 7s linear infinite}
 .bo{font-weight:700}
-@keyframes rn{from{transform:translateY(-260px)}to{transform:translateY(${H + 20}px)}}
 @keyframes fk{0%{fill-opacity:1}50%{fill-opacity:0}}
 @keyframes sn{from{transform:translate(0,0)}to{transform:translate(${f1(30 + drift * 0.8)}px,${H + 20}px)}}
 @keyframes bl{0%{opacity:1}50%{opacity:0}}
@@ -422,7 +402,7 @@ text{font-family:ui-monospace,'Cascadia Mono',Consolas,'DejaVu Sans Mono','Couri
 .bg{fill:#eef5e6}.bar{fill:#e3eed9;opacity:.9}
 .br{fill:#2e7a3a}.tr{fill:#4a5e2a}.tk{fill:#3a4a20}.gd{fill:#3f8f3f}.sl{fill:#9cb88c}
 ${leafCss(dayPal, DAY_WITHERED)}
-.hd{fill:#0b6a26}.rn{opacity:.28}.rg0,.rg1{stop-color:#2f9a4a}.rg2{stop-color:#17702f}
+
 .sn{fill:#6aa6c8}.hx,.cur{fill:#1b6b2b}.hx2{fill:#3d6b45}
 .su{fill:#e0a400}.cd{fill:#9fb7c4}.cdr{fill:#71848f}.bd{fill:#4a5a52}
 .rd{fill:#4f7fa6}.snw{fill:#8fb4c9}.fg{fill:#a7b4b2;opacity:.75}rect.lt{fill:#fff}.bo{fill:#d9a400}
@@ -433,7 +413,7 @@ ${gloomy ? '.bg{fill:#e3e8e6}.gld{display:none}' : ''}
 .bg{fill:#040a06}.bar{fill:#040a06;opacity:.85}
 .br{fill:#3fbf5a}.tr{fill:#2f9e4a}.tk{fill:#1f7a37}.gd{fill:#1f8f3f}.sl{fill:#0f4d22}
 ${leafCss(pal, WITHERED)}
-.hd{fill:#d9ffe0}.rn{opacity:.5}.rg0{stop-color:#00ff66}.rg1{stop-color:#00e65c}.rg2{stop-color:#7dffa0}
+
 .sn{fill:#d8f6ff}.hx,.cur{fill:#39ff6a}.hx2{fill:#7dbf8a}
 .mn{fill:#e8f5c8}.st{fill:#cfe8d5}.ff{fill:#e8ff6a}
 .cd{fill:#3c4d45}.cdr{fill:#2c3833}.rd{fill:#7fb8d9}.snw{fill:#d8f6ff}.fg{fill:#4f5f5a;opacity:.6}rect.lt{fill:#cfe8ff}.bo{fill:#fff6a0}
@@ -450,8 +430,7 @@ ${gloomy ? '.bg{fill:#030608}' : ''}
     `<title id="tt">${esc(T.title(geo.login))} – ${esc(weatherLine(wx))}</title>` +
     `<style>${style}</style>` +
     `<defs>` +
-    `<linearGradient id="rg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="rg0" stop-opacity="0"/><stop offset=".75" class="rg1" stop-opacity=".55"/><stop offset="1" class="rg2" stop-opacity=".9"/></linearGradient>` +
-    `<radialGradient id="vg" cx=".5" cy=".45" r=".75"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".65"/></radialGradient>` +
+        `<radialGradient id="vg" cx=".5" cy=".45" r=".75"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".65"/></radialGradient>` +
     `<radialGradient id="vgd" cx=".5" cy=".45" r=".8"><stop offset=".6" stop-color="#5a7a50" stop-opacity="0"/><stop offset="1" stop-color="#5a7a50" stop-opacity=".22"/></radialGradient>` +
     `<radialGradient id="gl" cx=".5" cy=".55" r=".5"><stop offset="0" stop-color="#1aff5a" stop-opacity=".09"/><stop offset="1" stop-color="#1aff5a" stop-opacity="0"/></radialGradient>` +
     `<radialGradient id="gs"><stop offset="0" stop-color="#ffd84a" stop-opacity=".5"/><stop offset="1" stop-color="#ffd84a" stop-opacity="0"/></radialGradient>` +
@@ -462,7 +441,6 @@ ${gloomy ? '.bg{fill:#030608}' : ''}
     `<rect class="bg" width="${W}" height="${H}"/>` +
     `<ellipse class="gln" cx="${f1(geo.BX)}" cy="${H * 0.5}" rx="${W * 0.45}" ry="${H * 0.55}" fill="url(#gl)"/>` +
     `<circle class="gld" cx="${(skyCol + 8.5) * CW}" cy="${4 * CH + 4}" r="110" fill="url(#gs)"/>` +
-    `<g>${rain}</g>` +
     bolt +
     day + night + clouds +
     `<g>${rows}</g>` +
