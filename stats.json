@@ -1,0 +1,19 @@
+{
+  "login": "josipdom",
+  "place": "Zagreb",
+  "weather": {
+    "code": 3,
+    "kind": "cloudy",
+    "intensity": 1,
+    "desc": "overcast",
+    "temp": 1,
+    "wind": 9,
+    "cloud": 100,
+    "ok": true
+  },
+  "season": "autumn",
+  "daynight": "night",
+  "sunrise": "2026-11-28T06:12:44.279Z",
+  "sunset": "2026-11-28T15:15:54.110Z",
+  "generatedAt": "2026-11-28T04:11:50.356Z"
+}
